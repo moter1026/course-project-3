@@ -1,33 +1,44 @@
-﻿
+﻿# Устанавливаем минимальную версию CMake и имя проекта
 cmake_minimum_required(VERSION 3.11)
+project(Aegis_osc_project)
 
-project(Aegis_cpp CXX)
+# Добавляем флаг для увеличения допустимого количества секций в объектном файле
+add_compile_options(/bigobj)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MDd") 
-
-# Специфичные настройки для компилятора Visual Studio
-if(MSVC)
-    # Включаем высокий уровень предупреждений
-    if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-        string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    else()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
-    endif()
+# Устанавливаем политику CMP0148 для использования FindPython
+if(POLICY CMP0148)
+    cmake_policy(SET CMP0148 NEW)
 endif()
+
+# Указываем путь к pybind11 вручную
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/../.venv/Lib/site-packages/pybind11/share/cmake/pybind11")
+
+# Устанавливаем переменную для поиска Python через FindPython
+set(PYBIND11_FINDPYTHON ON)
 
 include_directories(${CMAKE_SOURCE_DIR}/gl)
 include_directories(${CMAKE_SOURCE_DIR}/сpp)
 include_directories(${CMAKE_SOURCE_DIR}/libraries)
 
-
-file(GLOB SOURCES "cpp/*.cpp")
-
 add_definitions(-D_AFXDLL)
 set(CMAKE_MFC_FLAG 1)
 
-add_executable (Aegis_cpp_exe "prosto_file.cpp")
-target_sources(Aegis_cpp_exe PUBLIC ${SOURCES})
-target_link_libraries(Aegis_cpp_exe PUBLIC ${CMAKE_SOURCE_DIR}) 
+# Используем pybind11
+find_package(pybind11 REQUIRED)
 
+# Добавляем файл с исходным кодом
+add_library(file_osc_module MODULE cpp/file_osc.cpp)
+
+# Настраиваем цель для сборки модуля
+target_link_libraries(file_osc_module PRIVATE pybind11::module)
+#target_link_libraries(file_osc_module PUBLIC ${CMAKE_SOURCE_DIR}) 
+# Устанавливаем стандарт языка C++
+target_compile_features(file_osc_module PRIVATE cxx_std_11)
+
+# Устанавливаем свойства для совместимости с Python
+set_target_properties(file_osc_module PROPERTIES
+    PREFIX ""                      # Убираем префикс "lib"
+    OUTPUT_NAME "Aegis_osc"          # Имя модуля
+    SUFFIX ".pyd"                  # Расширение для Windows
+    LANGUAGE CXX                   # Указываем язык компиляции как C++
+)

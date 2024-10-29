@@ -1,3 +1,6 @@
 cpp old/
 .vs/
 out/
+cpp/build/
+*.osc
+CMakeLists(1).txt

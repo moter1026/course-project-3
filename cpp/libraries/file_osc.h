@@ -1,14 +1,16 @@
 #include "stdafx.h"
 #include "Classes_for_files.h"
 
+#include <pybind11/pybind11.h>
+
 #include <string>
 #include <string>
 #include <fstream>
 #include <iostream>
-//#include "Cfgman.h"
-//#include "DataMan.h"
 
 #define MAX_FDEFS 4
+
+namespace py = pybind11;
 
 #pragma once
 
@@ -32,13 +34,13 @@ public:
 	PreFilterData* m_preFilterDef;
 
 
-	bool readOsc(std::string fileName) {
+	bool readOsc(std::wstring fileName);/* {
 
 		std::ifstream file(fileName, std::ios::binary);
 		if (file)
 		{
 			m_fileHdr = new FileHdr();
-			if (m_fileHdr) AfxMessageBox("Ошибка при выделении памяти.");
+			if (!m_fileHdr) AfxMessageBox("Ошибка при выделении памяти.");
 			file.read(reinterpret_cast<char*>(m_fileHdr), sizeof(FileHdr));
 
 			m_measData = new MeasData();
@@ -77,8 +79,8 @@ public:
 
 		if (file)	file.close();
 		return true;
-	}
-	~File_osc() {
+	}*/
+	~File_osc(); /*{
 		if (m_fileHdr) delete m_fileHdr;
 		if (m_measData) delete m_measData;
 		if (m_filterDef) delete m_filterDef;
@@ -88,6 +90,7 @@ public:
 		if (cf_memory) free(cf_memory);  
 		if (m_cfgFileHdr) delete m_cfgFileHdr;
 		if (m_cfgFileInfo) delete m_cfgFileInfo;
-	}
+	}*/
 };
+
 
