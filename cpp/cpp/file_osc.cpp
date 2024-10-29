@@ -37,7 +37,6 @@ bool File_osc::readOsc(std::wstring fileName) {
 			file.read((char*)(&m_oscDefMod[i]), sizeof(OSCDefMod));
 			file.seekg((m_oscDefMod[i].buf_size << 1), std::ios::cur);
 		}
-
 	}
 	else
 	{
