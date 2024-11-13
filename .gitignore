@@ -10,5 +10,6 @@ cpp/build/
 *.xlsx
 *.zip
 *.txt
+!requirements.txt
 CMakeLists(1).txt
 review_Kinopoisk_lab5/
