@@ -11,5 +11,5 @@ cpp/build/
 *.zip
 *.txt
 !requirements.txt
-CMakeLists(1).txt
+!CMakeLists.txt
 review_Kinopoisk_lab5/
