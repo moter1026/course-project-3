@@ -38,7 +38,8 @@ private:
 
 public:
 	bool readOsc(std::wstring fileName);
-	std::vector<short> getDotsOSC(int numOSC);
+	std::vector<short> getDotOSC(int numOSC);
+	std::vector<std::vector<short>> getDotsOSC(int startOSC, int endOSC);
 	void close(std::ifstream& file);
 };
 

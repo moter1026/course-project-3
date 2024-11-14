@@ -33,11 +33,13 @@ def about(dir: str) -> list:
 
 
 
-def make_description(name: str, name_dir: str) -> None:
+def make_description(name: str, name_dir: str, type_of_file: str) -> None:
     with open(name+".csv", mode="w+", encoding='utf-16') as textFile:
         file_writer = csv.writer(textFile, delimiter = ",")
         file_writer.writerow(["абсолютный путь к файлу", "относительный путь", "метка класса"])
-        all_descriptions = about(name_dir)
+        descriptions_about = about(name_dir)
+        if len(type_of_file) != 0:
+            all_descriptions = [s for s in descriptions_about if (s.full_path[s.full_path.rfind('.') + 1:].lower() == type_of_file.lower())]
         for description in all_descriptions:
             file_writer.writerow([description.full_path, description.path, description.type_class])
 

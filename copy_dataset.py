@@ -43,7 +43,7 @@ def make_copy_dataset(path_from: str, path_to: str):
     name_file = f"description_{category_name}"
     name_file_copy = f"{name_file}_copy"
 
-    description.make_description(name_file_copy, path_to)
+    description.make_description(name_file_copy, path_to, "osc")
 
 
 def rename_files(dir_path: str, category: str) -> None:

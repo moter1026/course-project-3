@@ -17,7 +17,7 @@ bool File_osc::readOsc(std::wstring fileName) {
 	}
 	this->m_fileName = fileName;
 
-	
+
 	this->m_logger->logging(LogLevel::_INFO_, "read FileHdr info");
 	this->m_fileHdr = new FileHdr();
 	if (!this->m_fileHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
@@ -63,35 +63,27 @@ bool File_osc::readOsc(std::wstring fileName) {
 	return true;
 }
 
-std::vector<short> File_osc::getDotsOSC(int numOSC)
+std::vector<short> getDotOSCInFile(std::ifstream& file, int numOSC, OSCDefMod& oscDefMod)
 {
-	this->m_logger->logging(LogLevel::_INFO_, "open file osc for reading");
-	std::ifstream file(this->m_fileName, std::ios::binary);
-	if (!file) {
-		this->m_logger->logging(LogLevel::_CRITICAL_, "Can`t open file for reading");
-		throw std::domain_error(_T("не удалось открыть файл для чтения."));
-	}
-
 	std::vector<short> dots;
 	short dot;
 	short dot_out;
 
-	ULONGLONG f_pointer = m_oscDefMod[numOSC].seek_wave;
+	ULONGLONG f_pointer = oscDefMod.seek_wave;
 	// Получаем длину файла
 	file.seekg(0, std::ios::end);
 	std::streamsize file_length = file.tellg();
 	file.seekg(0, std::ios::beg);
 
-	if (file_length > 0xFFFFFFFF) f_pointer += ULONGLONG(m_oscDefMod[numOSC].seek_wave_high) << 32;
+	if (file_length > 0xFFFFFFFF) f_pointer += ULONGLONG(oscDefMod.seek_wave_high) << 32;
 
 	file.seekg(f_pointer, std::ios::beg);
 	file.seekg(sizeof(OSCDefMod), std::ios::cur);
 
-	this->m_logger->logging(LogLevel::_INFO_, "start read dots of osc");
-	if (m_oscDefMod[numOSC].bPowerMethod & 0x100) {
+	if (oscDefMod.bPowerMethod & 0x100) {
 		long value;
 		long base;
-		for (size_t j = 0; j < m_oscDefMod[numOSC].buf_size; j++)
+		for (size_t j = 0; j < oscDefMod.buf_size; j++)
 		{
 			file.read((char*)&dot, sizeof(dot));
 			value = dot;
@@ -105,18 +97,57 @@ std::vector<short> File_osc::getDotsOSC(int numOSC)
 			}
 			dots.push_back(dot_out);
 		}
-	} else
+	}
+	else
 	{
-		for (size_t j = 0; j < m_oscDefMod[numOSC].buf_size; j++)
+		for (size_t j = 0; j < oscDefMod.buf_size; j++)
 		{
 			file.read((char*)&dot, sizeof(dot));
 			dots.push_back(dot);
 		}
 	}
 
+	return dots;
+}
+
+std::vector<short> File_osc::getDotOSC(int numOSC)
+{
+	this->m_logger->logging(LogLevel::_INFO_, "open file osc for reading");
+	std::ifstream file(this->m_fileName, std::ios::binary);
+	if (!file) {
+		this->m_logger->logging(LogLevel::_CRITICAL_, "Can`t open file for reading");
+		throw std::domain_error(_T("не удалось открыть файл для чтения."));
+	}
+
+	this->m_logger->logging(LogLevel::_INFO_, "start read dots of osc");
+	std::vector<short> dots = getDotOSCInFile(file, numOSC, this->m_oscDefMod[numOSC]);
+	this->m_logger->logging(LogLevel::_INFO_, "end read dots of osc");
+
 	close(file);
 	return dots;
 }
+
+std::vector<std::vector<short>> File_osc::getDotsOSC(int startOSC, int endOSC) {
+	this->m_logger->logging(LogLevel::_INFO_, "open file osc for reading");
+	std::ifstream file(this->m_fileName, std::ios::binary);
+	if (!file) {
+		this->m_logger->logging(LogLevel::_CRITICAL_, "Can`t open file for reading");
+		throw std::domain_error(_T("не удалось открыть файл для чтения."));
+	}
+
+	std::vector<std::vector<short>> dots;
+
+	this->m_logger->logging(LogLevel::_INFO_, "start read dots of osc");
+	for (size_t i = startOSC; i < endOSC; i++)
+	{
+		dots.push_back(getDotOSCInFile(file, i, this->m_oscDefMod[i]));
+	}
+	this->m_logger->logging(LogLevel::_INFO_, "end read dots of osc");
+
+	close(file);
+	return dots;
+}
+
 
 void File_osc::close(std::ifstream& file)
 {
@@ -132,7 +163,7 @@ File_osc::~File_osc() {
 	if (m_cfgFileHdr) delete m_cfgFileHdr;
 	if (m_cfgFileInfo) delete m_cfgFileInfo;
 	if (cf_memory) free(cf_memory);
-	if (m_logger) delete m_logger;	
+	if (m_logger) delete m_logger;
 }
 
 
@@ -141,14 +172,15 @@ PYBIND11_MODULE(Aegis_osc, m) {
 		.def(py::init<std::wstring>())
 		.def("readOsc", &File_osc::readOsc, "Метод читает из файла fileName данные об осциллограммах",
 			py::arg("fileName"))
-		.def("getDotsOSC", &File_osc::getDotsOSC, "Метод возвращает точки осциллограммы", py::arg("numOSC"))
+		.def("getDotOSC", &File_osc::getDotOSC, "Метод возвращает точки осциллограммы", py::arg("numOSC"))
+		.def("getDotsOSC", &File_osc::getDotsOSC, "Метод возвращает список точек осциллограмм", py::arg("startOSC"), py::arg("endOSC"))
 		.def_readwrite("m_fileHdr", &File_osc::m_fileHdr)
 		.def_readwrite("m_measData", &File_osc::m_measData)
-	.def_readwrite("m_sdoHdr", &File_osc::m_sdoHdr)
-	.def_readwrite("m_cfgFileHdr", &File_osc::m_cfgFileHdr)
-	.def_readwrite("m_cfgFileInfo", &File_osc::m_cfgFileInfo)
-	.def_readwrite("cf_memory", &File_osc::cf_memory)
-	.def_readwrite("m_oscDefMod", &File_osc::m_oscDefMod);
+		.def_readwrite("m_sdoHdr", &File_osc::m_sdoHdr)
+		.def_readwrite("m_cfgFileHdr", &File_osc::m_cfgFileHdr)
+		.def_readwrite("m_cfgFileInfo", &File_osc::m_cfgFileInfo)
+		.def_readwrite("cf_memory", &File_osc::cf_memory)
+		.def_readwrite("m_oscDefMod", &File_osc::m_oscDefMod);
 
 	bind_FileHdr(m);
 	bind_FilterDef(m);
