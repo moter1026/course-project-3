@@ -29,6 +29,6 @@ model = models.Sequential([
 ])
 
 model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-epochs = 30
+epochs = 20
 model.fit(X_train, y_train, epochs=epochs, validation_data=(X_test, y_test))
 model.save(f"my_model_24_12_11_corrected_dataset_{epochs}epochs.keras")
