@@ -32,6 +32,7 @@ public:
 	CfgFileInfo* m_cfgFileInfo;
 	void* cf_memory;
 	std::vector<OSCDefMod> m_oscDefMod;
+	std::ifstream* m_file;
 
 private:
 	Logger* m_logger;
@@ -39,8 +40,15 @@ private:
 public:
 	bool readOsc(std::wstring fileName);
 	std::vector<short> getDotOSC(int numOSC);
+	std::vector<short> File_osc::getDotOSC_NOC(int numOSC);
 	std::vector<std::vector<short>> getDotsOSC(int startOSC, int endOSC);
+	bool saveOSC(std::wstring fileName
+		, std::vector<std::vector<short>> arr_osc
+		, std::vector<int> indexes);
+	void openReadFile();
+	void cls();
 	void close(std::ifstream& file);
+	void close(std::ofstream& file);
 };
 
 std::string wstring_to_string(const std::wstring& wstr) {

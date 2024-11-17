@@ -1,8 +1,10 @@
 #include "file_osc.h"
 
 File_osc::File_osc(std::wstring fileName) {
-	std::string logFileName = std::string("log_") + wstring_to_string(fileName);
-	logFileName.end() = logFileName.end() - 4;
+	std::string logFileName = wstring_to_string(fileName);
+	int ind = logFileName.rfind('.');
+	logFileName.erase(ind);
+	logFileName = logFileName.insert(ind, "_log_.txt");
 	this->m_logger = new Logger(logFileName);
 	this->m_logger->logging(LogLevel::_INFO_, "Creating a File_osc class for working with osc files");
 	this->readOsc(fileName);
@@ -110,46 +112,150 @@ std::vector<short> getDotOSCInFile(std::ifstream& file, int numOSC, OSCDefMod& o
 	return dots;
 }
 
+void setDotOSCInFile(std::ofstream& file, WORD bPowerMethod, std::vector<short> dots)
+{
+	if (bPowerMethod & 0x100) {
+		std::vector<int> delitel;
+		delitel.push_back(1);
+		delitel.push_back(2);
+		delitel.push_back(4);
+		delitel.push_back(16);
+		for (size_t j = 0; j < dots.size(); j++)
+		{
+			int base = 0;
+			for (size_t i = 0; i < delitel.size(); i++)
+			{
+				base = dots[j] / delitel[i];
+				if (labs((base * 4) & 0x03) == i)
+					dots[j] = base * 4;
+				break;
+			}
+			file.write((char*)&dots[j], sizeof(dots[j]));
+		}
+		return;
+	}
+	
+	for (size_t j = 0; j < dots.size(); j++)
+	{	
+		file.write((char*)&dots[j], sizeof(dots[j]));
+	}
+}
+
 std::vector<short> File_osc::getDotOSC(int numOSC)
 {
-	this->m_logger->logging(LogLevel::_INFO_, "open file osc for reading");
-	std::ifstream file(this->m_fileName, std::ios::binary);
-	if (!file) {
-		this->m_logger->logging(LogLevel::_CRITICAL_, "Can`t open file for reading");
-		throw std::domain_error(_T("не удалось открыть файл для чтения."));
-	}
+	this->openReadFile();
 
 	this->m_logger->logging(LogLevel::_INFO_, "start read dots of osc");
-	std::vector<short> dots = getDotOSCInFile(file, numOSC, this->m_oscDefMod[numOSC]);
+	std::vector<short> dots = getDotOSCInFile(*this->m_file, numOSC, this->m_oscDefMod[numOSC]);
 	this->m_logger->logging(LogLevel::_INFO_, "end read dots of osc");
 
-	close(file);
+	close(*this->m_file);
+	return dots;
+}
+
+// NOC - no open, no close
+std::vector<short> File_osc::getDotOSC_NOC(int numOSC)
+{
+	if (!this->m_file) 
+	{
+		this->m_logger->logging(LogLevel::_CRITICAL_, "file for read closed!");
+		throw std::runtime_error("file for read closed!");
+	}
+
+	std::vector<short> dots = getDotOSCInFile(*this->m_file, numOSC, this->m_oscDefMod[numOSC]);
+
 	return dots;
 }
 
 std::vector<std::vector<short>> File_osc::getDotsOSC(int startOSC, int endOSC) {
-	this->m_logger->logging(LogLevel::_INFO_, "open file osc for reading");
-	std::ifstream file(this->m_fileName, std::ios::binary);
-	if (!file) {
-		this->m_logger->logging(LogLevel::_CRITICAL_, "Can`t open file for reading");
-		throw std::domain_error(_T("не удалось открыть файл для чтения."));
-	}
+	this->openReadFile();
 
 	std::vector<std::vector<short>> dots;
 
 	this->m_logger->logging(LogLevel::_INFO_, "start read dots of osc");
 	for (size_t i = startOSC; i < endOSC; i++)
 	{
-		dots.push_back(getDotOSCInFile(file, i, this->m_oscDefMod[i]));
+		dots.push_back(getDotOSCInFile(*this->m_file, i, this->m_oscDefMod[i]));
 	}
 	this->m_logger->logging(LogLevel::_INFO_, "end read dots of osc");
 
-	close(file);
+	close(*this->m_file);
 	return dots;
 }
 
+bool File_osc::saveOSC(std::wstring fileName
+	, std::vector<std::vector<short>> arr_osc
+	, std::vector<int> indexes)
+{
+	std::ofstream file(fileName, std::ios::binary);
+	if (!file) {
+		this->m_logger->logging(LogLevel::_CRITICAL_, "Can`t open file for writing");
+		throw std::domain_error(_T("не удалось открыть файл для записи."));
+	}
+
+	this->m_logger->logging(LogLevel::_INFO_, "write FileHdr info");
+	if (!this->m_fileHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file.write(reinterpret_cast<char*>(this->m_fileHdr), sizeof(FileHdr));
+
+	this->m_logger->logging(LogLevel::_INFO_, "write MeasData info");
+	if (!this->m_measData) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file.write(reinterpret_cast<char*>(this->m_measData), sizeof(MeasData));
+
+	this->m_logger->logging(LogLevel::_INFO_, "write SDOHdr info");
+	if (!this->m_sdoHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	this->m_sdoHdr->NumOSC = arr_osc.size();
+	file.write(reinterpret_cast<char*>(this->m_sdoHdr), sizeof(SDOHdr));
+
+	this->m_logger->logging(LogLevel::_INFO_, "write CfgFileHdr info");
+	if (!this->m_cfgFileHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file.write(reinterpret_cast<char*>(this->m_cfgFileHdr), sizeof(CfgFileHdr));
+
+	this->m_logger->logging(LogLevel::_INFO_, "write CfgFileInfo info");
+	if (!this->m_cfgFileInfo) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file.write(reinterpret_cast<char*>(this->m_cfgFileInfo), this->m_cfgFileHdr->info_size);
+
+	this->m_logger->logging(LogLevel::_INFO_, "write mem_size");
+	if (!this->cf_memory) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file.write(reinterpret_cast<char*>(this->cf_memory), this->m_cfgFileInfo->mem_size);
+
+	this->m_logger->logging(LogLevel::_INFO_, "start write data of osc");
+	for (size_t i = 0; i < arr_osc.size(); i++)
+	{
+		OSCDefMod* now_oscDefMod = &(this->m_oscDefMod[indexes[i]]);
+		now_oscDefMod->seek_wave = file.tellp();
+		file.write(reinterpret_cast<char*>(now_oscDefMod), sizeof(OSCDefMod));
+		setDotOSCInFile(file, now_oscDefMod->bPowerMethod, arr_osc[i]);
+	}
+	this->m_logger->logging(LogLevel::_INFO_, "end write data of osc");
+
+
+	close(file);
+	return true;
+}
+
+void File_osc::openReadFile()
+{
+	this->m_logger->logging(LogLevel::_INFO_, "open file osc for reading");
+	std::ifstream* file = new std::ifstream(this->m_fileName, std::ios::binary);
+	if (!file) {
+		this->m_logger->logging(LogLevel::_CRITICAL_, "Can`t open file for reading");
+		throw std::domain_error(_T("не удалось открыть файл для чтения."));
+	}
+	this->m_file = file;
+}
+
+void File_osc::cls()
+{
+	this->m_logger->logging(LogLevel::_INFO_, "close file osc");
+	if (this->m_file) this->m_file->close();
+}
 
 void File_osc::close(std::ifstream& file)
+{
+	this->m_logger->logging(LogLevel::_INFO_, "close file osc");
+	if (file)	file.close();
+}
+void File_osc::close(std::ofstream& file)
 {
 	this->m_logger->logging(LogLevel::_INFO_, "close file osc");
 	if (file)	file.close();
@@ -173,7 +279,13 @@ PYBIND11_MODULE(Aegis_osc, m) {
 		.def("readOsc", &File_osc::readOsc, "Метод читает из файла fileName данные об осциллограммах",
 			py::arg("fileName"))
 		.def("getDotOSC", &File_osc::getDotOSC, "Метод возвращает точки осциллограммы", py::arg("numOSC"))
+		.def("getDotOSC_NOC", &File_osc::getDotOSC_NOC, "Метод возвращает точки осциллограммы,\
+			 используя уже открытый до этого файл", py::arg("numOSC"))
 		.def("getDotsOSC", &File_osc::getDotsOSC, "Метод возвращает список точек осциллограмм", py::arg("startOSC"), py::arg("endOSC"))
+		.def("saveOSC", &File_osc::saveOSC, "Метод сохраняет новый файл осциллограммы", py::arg("fileName"), py::arg("arr_osc"), py::arg("indexes"))
+		.def("openReadFile", &File_osc::openReadFile, "Открывает для чтения файл, который был указан при создании объекта,\
+			и не закрывает пока не будет вызван close()")
+		.def("cls", &File_osc::cls, "закрывает файл, который был указан при создании объекта")
 		.def_readwrite("m_fileHdr", &File_osc::m_fileHdr)
 		.def_readwrite("m_measData", &File_osc::m_measData)
 		.def_readwrite("m_sdoHdr", &File_osc::m_sdoHdr)
