@@ -19,7 +19,7 @@ except ImportError as e:
 class TestModel():
     def __init__(self):
         # Загрузка модели
-        self.model = load_model('my_model2_24_12_11_corrected_dataset_30epochs.keras')
+        self.model = load_model('NO BAD MODEL.keras')
         self.padded_data_oscs = []
         self.data_list = []
         self.max_length = 4000
@@ -149,42 +149,3 @@ class TestModel():
                 res["Vibration"].append(ind)
         return res
 
-
-# name_osc = "C:/Users/Матвей/Desktop/osc/Татнефть-Добыча/aem05_06_23#03.osc"
-
-
-# h_z = math.ceil(1 + 3.322 * math.log10(len(data_list[1])) + 3)
-# #полученные интервалы
-# bins = (np.arange(min(data_list[0]), max(data_list[0]) , (max(data_list[0]) - min(data_list[0]))/h_z))
-# plt.hist(data_list[1], len(bins), density=True, alpha=0.6, color='g', edgecolor='black')
-# plt.show()
-
-
-# for sublist in data_list:
-#     mean = np.mean(sublist)
-#     std = np.std(sublist)
-#     padded_data_oscs.append(sublist)
-#     # if len(sublist) < max_length:
-#     padded_data_oscs[-1].extend(np.random.normal(mean, std, length - len(sublist)).tolist())
-
-
-# Например, X_new — это данные, которые вы хотите классифицировать
-# X_new = np.array(padded_data_oscs)  # Ваши новые данные
-
-# Приводим X_new к нужной форме (если необходимо)
-# X_new = X_new[..., np.newaxis]  # Если данные требуют добавления дополнительной размерности для Conv1D
-
-# Делаем предсказание
-# predictions = model.predict([np_data_oscs, np_spectr_list, np_features_list])
-# predictions = model.predict([np_data_oscs, np_spectr_list])
-#
-# response = [max_in_ind(arrays) for arrays in predictions]
-#
-# # Для многоклассовой классификации, выводим вероятности для каждого класса
-# with open(name_osc[:name_osc.rfind(".")] + ".txt", "w+", encoding="utf-16") as csv_reader:
-#     writer = csv.writer(csv_reader, delimiter=";")
-#     data = []
-#     for i, arr in enumerate(response):
-#         writer.writerow([i, arr[0], arr[1]])
-#
-# print(response)

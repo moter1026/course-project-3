@@ -117,7 +117,7 @@ class Main_menu(QWidget):
 
         spectr_list = []
         features_list = []
-        data_oscs, categories = DataOsc.create_datasets_with_osc(list_osc, csv_categories)
+        data_oscs, categories = DataOsc.create_datasets_with_osc(list_osc, csv_categories, augment=True)
 
         max_length = max([len(sublist) for sublist in data_oscs])
         smoothed_signal = []

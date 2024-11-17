@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 from collections import Counter
 
@@ -22,7 +23,9 @@ class DataOsc:
             return
 
     @staticmethod
-    def create_datasets_with_osc(list_osc, csv_categories) -> (list, list):
+    def create_datasets_with_osc(list_osc: list
+                                 , csv_categories: list
+                                 , augment: bool = False) -> (list[list], list[str]):
         """"""
         data_oscs = []
         categories = []
@@ -36,12 +39,19 @@ class DataOsc:
 
         # цикл для подсчёта кол-ва данных, относящихся к одной категории
         counts = Counter(categories)
-        delete_el = []
+        delete_el: list[list] = []
+        add_el: list[list] = []
+        add_el_coef = 1.5
         for name in counts:
+            part_of_all = counts[name] / len(categories)
             # если данных одной категории слишком много,
             # то запоминаем какой класс нужно уменьшить
-            if counts[name] / len(categories) >= 0.4:
+            if part_of_all >= 0.4:
                 delete_el.append([name, len(categories) * 0.2])
+                continue
+
+            if augment and part_of_all < 0.2:
+                add_el.append([name, len(categories) * 0.2])
 
         # уменьшаем выборку, если это необходимо
         if len(delete_el) != 0:
@@ -51,8 +61,40 @@ class DataOsc:
                         categories.pop(i)
                         data_oscs.pop(i)
                         counts[d[0]] -= 1
+                    elif d[1] > counts[d[0]]:
+                        break
+
+        if len(add_el) != 0:
+            length_cat = len(categories)
+            for a in add_el:
+                count_add = a[1] - counts[a[0]]
+                for i in range(length_cat):
+                    if count_add > 1 and categories[i] == a[0]:
+                        new_osc = DataOsc.augmentation_on_time_cycle(data_oscs[i])
+                        data_oscs.append(new_osc)
+                        categories.append(a[0])
+                        count_add -= 1
+                    elif count_add <= 0:
+                        break
+        counts = Counter(categories)
 
         return data_oscs, categories
+
+    @staticmethod
+    def augmentation_on_time_cycle(list_osc: list) -> list:
+        augm_list = []
+        for osc in list_osc:
+            augm_list.append(np.roll(osc, random.randint(5, 50)))
+        return  augm_list
+
+    @staticmethod
+    def augmentation_on_time(list_osc: list) -> list:
+        augm_list = []
+        for osc in list_osc:
+            shift = random.randint(5, 50)
+            augm_list.append(np.roll(osc, shift))
+            augm_list[-1][:shift] = 0
+        return augm_list
 
     @staticmethod
     def fill_dataset_for_nulls(signal: list, target_len: int) -> list:

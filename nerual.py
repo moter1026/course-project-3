@@ -3,17 +3,18 @@ import tensorflow as tf
 from tensorflow.keras import layers, models
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
+from tensorflow.keras.callbacks import EarlyStopping
 
 # Загрузка данных
-input_signal = np.load("description_24.12.11 ОСЦ Для Матвея_copy_values.npy")  # Осциллограммы
+input_signal = np.load("description_24.11.17 ОСЦ Для Матвея_copy_values.npy")  # Осциллограммы
 input_signal = np.expand_dims(input_signal, axis=-1)  # Преобразуем (batch_size, seq_len) в (batch_size, seq_len, 1)
 
-input_spectrum = np.load("description_24.12.11 ОСЦ Для Матвея_copy_spectr.npy")  # Спектр
+input_spectrum = np.load("description_24.11.17 ОСЦ Для Матвея_copy_spectr.npy")  # Спектр
 input_spectrum = np.real(input_spectrum)
 
 # input_features = np.load("description_24.12.11 ОСЦ Для Матвея_copy_features.npy")  # Мат.Стат. признаки
 
-classes_signal = np.load("description_24.12.11 ОСЦ Для Матвея_copy_categories.npy")  # Метки (сигнал, шум и т.д.)
+classes_signal = np.load("description_24.11.17 ОСЦ Для Матвея_copy_categories.npy")  # Метки (сигнал, шум и т.д.)
 
 # Инициализация кодировщика меток
 label_encoder = LabelEncoder()
@@ -42,7 +43,8 @@ x2 = layers.Dense(32, activation='relu')(x2)
 combined = layers.concatenate([x1, x2])
 
 # Финальные Dense слои для классификации
-x = layers.Dense(64, activation='relu')(combined)
+x = layers.Dense(64, activation='relu', kernel_regularizer='l2')(combined)
+x = layers.Dropout(0.5)(x)
 output = layers.Dense(len(np.unique(classes_signal)), activation='softmax')(x)
 
 # Создание модели
@@ -59,18 +61,22 @@ model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=
  y_train, y_test) = train_test_split(input_signal, input_spectrum,
                                      classes_signal, test_size=0.2, random_state=42)
 
+
+# Настройка ранней остановки
+early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+
 # Обучение модели
-epochs = 30
+epochs = 20
 # model.fit(
 #     [X_train_sig, X_train_spec, X_train_features], y_train,
 #     validation_data=([X_test_sig, X_test_spec, X_test_features], y_test),
-#     epochs=30,
+#     epochs=epochs,
 #     batch_size=32
 # )
 model.fit(
     [X_train_sig, X_train_spec], y_train,
     validation_data=([X_test_sig, X_test_spec], y_test),
-    epochs=20,
+    epochs=epochs,
     batch_size=32
 )
-model.save(f"my_model2_24_12_11_corrected_dataset_{epochs}epochs.keras")
+model.save(f"my_model2_24_11_17_{epochs}_epochs.keras")
