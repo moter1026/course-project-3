@@ -21,9 +21,9 @@ include_directories(${CMAKE_SOURCE_DIR}/gl)
 include_directories(${CMAKE_SOURCE_DIR}/cpp)
 include_directories(${CMAKE_SOURCE_DIR}/libraries)
 
-# Включаем поддержку MFC
+# Включаем динамическую линковку MFC
 add_definitions(-D_AFXDLL)
-set(CMAKE_MFC_FLAG 1)
+set(CMAKE_MFC_FLAG 2) # Использование MFC в DLL (динамическая линковка)
 
 # Используем pybind11
 find_package(pybind11 REQUIRED)
@@ -39,6 +39,17 @@ add_library(file_osc_module MODULE ${CPP_SOURCES})
 
 # Линкуем библиотеку с pybind11
 target_link_libraries(file_osc_module PRIVATE pybind11::module)
+
+# Добавляем статическую линковку для всех стандартных библиотек
+target_link_libraries(file_osc_module PRIVATE
+    ws2_32.lib   # Windows Sockets
+    user32.lib   # Windows API
+    kernel32.lib # Windows Kernel API
+    advapi32.lib # Advanced Windows API
+    shell32.lib  # Windows Shell API
+    ole32.lib    # Object Linking and Embedding API
+    gdi32.lib    # Graphics Device Interface API
+)
 
 # Устанавливаем стандарт языка C++
 target_compile_features(file_osc_module PRIVATE cxx_std_11)

@@ -41,7 +41,6 @@ class DataOsc:
         counts = Counter(categories)
         delete_el: list[list] = []
         add_el: list[list] = []
-        add_el_coef = 1.5
         for name in counts:
             part_of_all = counts[name] / len(categories)
             # если данных одной категории слишком много,
@@ -53,17 +52,7 @@ class DataOsc:
             if augment and part_of_all < 0.2:
                 add_el.append([name, len(categories) * 0.2])
 
-        # уменьшаем выборку, если это необходимо
-        if len(delete_el) != 0:
-            for d in delete_el:
-                for i in range(len(categories) - 1, -1, -1):
-                    if d[1] <= counts[d[0]] and categories[i] == d[0]:
-                        categories.pop(i)
-                        data_oscs.pop(i)
-                        counts[d[0]] -= 1
-                    elif d[1] > counts[d[0]]:
-                        break
-
+        # Увеличиваем выборку путём аугментации, если необходимо
         if len(add_el) != 0:
             length_cat = len(categories)
             for a in add_el:
@@ -76,6 +65,18 @@ class DataOsc:
                         count_add -= 1
                     elif count_add <= 0:
                         break
+
+        # уменьшаем выборку, если это необходимо
+        if len(delete_el) != 0:
+            for d in delete_el:
+                for i in range(len(categories) - 1, -1, -1):
+                    if d[1] <= counts[d[0]] and categories[i] == d[0]:
+                        categories.pop(i)
+                        data_oscs.pop(i)
+                        counts[d[0]] -= 1
+                    elif d[1] > counts[d[0]]:
+                        break
+
         counts = Counter(categories)
 
         return data_oscs, categories

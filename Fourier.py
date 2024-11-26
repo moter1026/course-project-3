@@ -3,11 +3,9 @@ import sys
 
 import numpy as np
 
-# import matplotlib.pyplot as plt
-import numpy as np
 
 # Теперь импортируем модуль для работы с osc
-module_path = os.path.abspath("cpp/build/Debug")
+module_path = os.path.abspath("./")
 sys.path.append(module_path)
 try:
     import Aegis_osc
@@ -35,6 +33,16 @@ class Fourier:
         return power
 
     @staticmethod
+    def fill_dataset_for_nulls(signal: list, target_len: int) -> list:
+        """метод, добавляющий нули в конец датасета до определённой длины"""
+        if len(signal) >= target_len:
+            return signal[:target_len]
+
+        fill_len = target_len - len(signal)
+        signal.extend([0 for _ in range(fill_len)])
+        return signal
+    
+    @staticmethod
     def four2(signal: list | np.ndarray, d: int = -1) -> list:
         """
         Реализация алгоритма БПФ на Python на основе кода из книги В.П. Дьяконова.
@@ -46,8 +54,10 @@ class Fourier:
         m = 1
         val = 1
         while val < len(signal):
-            val <<= m
+            val <<= 1
             m += 1
+        if len(signal) < 2**m:
+            signal = Fourier.fill_dataset_for_nulls(signal, 2**m)
         n = 1 << m  # N = 2^M
         y = np.zeros(n)  # массив для мнимой части
 
@@ -103,6 +113,7 @@ class Fourier:
                 signal[k] /= n
                 y[k] /= n
 
+        signal[0] = 0
         return signal
 
     @staticmethod
@@ -129,10 +140,3 @@ class Fourier:
             x.append(i / (spectr_buf_size / 500))
             y.append(round(spectra[i] * K_mkV / freq * 2896309))
         return x, y
-
-# osc_file = Aegis_osc.File_osc("cpp/aem08_06_23#01.osc")
-#
-# x, y = abs_values_of_spectr(osc_file, 6)
-# plt.plot(x, y)
-#
-# plt.show()
