@@ -1,25 +1,24 @@
-import csv
 import math
-import os
-import sys
-import matplotlib.pyplot as plt
+from typing import List, Any
+
 import numpy as np
+from numpy import ndarray, dtype, signedinteger
+from numpy._typing import _16Bit
+
 from tensorflow.keras.models import load_model
 from scipy.fft import fft, ifft
-from PyQt5.QtWidgets import QFileDialog
 
-module_path = os.path.abspath("cpp/build/Debug")
-sys.path.append(module_path)
-try:
-    import Aegis_osc
-except ImportError as e:
-    raise "Не удалось импортировать модуль для работы с осциллограммами!"
+import Aegis_osc
+
+from work_with_osc import DataOsc
 
 
-class TestModel():
+class TestModel:
     def __init__(self):
         # Загрузка модели
-        self.model = load_model('NO BAD MODEL.keras')
+        # self.model = load_model('NO BAD MODEL.keras')
+        self.K_mkV_list = None
+        self.model = load_model('my_model_24_12_03_20_epochs.keras')
         self.padded_data_oscs = []
         self.data_list = []
         self.max_length = 4000
@@ -35,11 +34,21 @@ class TestModel():
         self.num_osc = self.file_osc.m_sdoHdr.NumOSC
         return self.data_list
 
-    def __get_data_for_predict(self) -> list:
+    def __get_data_for_predict(self) -> list[Any]:
+        """
+        Метод возвращает данные, необходимые для предсказани категорий осциллограмм.
+        Возвращает:
+            1) np.ndarray np_data_oscs - список осциллограмм
+            2) np.ndarray np_spectr_list - список спектров
+            3) np.ndarray np_dB_list - список децибел для осциллограмм
+        Для использование необходимо, чтобы до вызова были созданы и заполнены значениями
+        self.K_mkV_list, self.data_list, self.max_length,
+        """
         # features_list = []
         smoothed_signal = []
         spectr_list = []
-        for signal in self.data_list:
+        dB_list = []
+        for i, signal in enumerate(self.data_list):
             current_length = len(signal)
 
             # Получаем значения из мат. статистики, которые могут помочь
@@ -60,8 +69,8 @@ class TestModel():
                 smoothed_signal.append(signal)
                 # Получаем спектр и запоминаем его
                 spectrum = fft(signal.copy())
-                spectrum_length = len(spectrum)
                 spectr_list.append(spectrum)
+                dB_list.append(DataOsc.get_dB_osc(signal, self.K_mkV_list[i]))
                 continue
 
             # Инициализация дополненного массива
@@ -76,27 +85,25 @@ class TestModel():
             # Добавляем шум к оставшейся части массива
             padded_signal[current_length:] = noise
 
-            # Переходим в частотную область, чтобы сгладить переход
-            # spectrum_padded = fft(padded_signal)
-
-            # Применяем обратное преобразование Фурье для получения дополненного сигнала
-            # from_spectr = np.real(ifft(spectrum_padded))
-            # from_spectr[:current_length] = signal
-
             # Получаем спектр после приведения к нужной длине и сохраняем его
             spectrum = fft(padded_signal)
             spectr_list.append(spectrum)
 
+            dB_list.append(DataOsc.get_dB_osc(signal, self.K_mkV_list[i]))
+
             smoothed_signal.append(padded_signal)
 
-        self.np_data_oscs = np.array(smoothed_signal).astype(np.int16)
-        self.np_data_oscs = np.expand_dims(self.np_data_oscs, axis=-1)
+        np_data_oscs = np.array(smoothed_signal).astype(np.int16)
+        np_data_oscs = np.expand_dims(np_data_oscs, axis=-1)
 
-        self.np_spectr_list = np.array(spectr_list)
-        self.np_spectr_list = np.real(self.np_spectr_list).astype(np.int16)
+        np_spectr_list = np.array(spectr_list)
+        np_spectr_list = np.real(np_spectr_list).astype(np.int16)
+
+        np_dB_list = np.array(dB_list)
+        np_dB_list = np.real(np_dB_list).astype(np.int16)
 
         # self.np_features_list = np.array(features_list)
-        return [self.np_data_oscs, self.np_spectr_list]
+        return [np_data_oscs, np_spectr_list, np_dB_list]
 
     @staticmethod
     def max_in_ind(arr: np.ndarray):
@@ -118,6 +125,7 @@ class TestModel():
             end = 10000
             for _ in range(math.ceil(iter)):
                 self.data_list = self.file_osc.getDotsOSC(start, end)
+                self.K_mkV_list = [self.file_osc.m_oscDefMod[i].K_mkV for i in range(start, end)]
                 datas = self.__get_data_for_predict()
                 predictions.extend(self.model.predict(datas))
                 iter -= 1
@@ -125,6 +133,7 @@ class TestModel():
                 end = start + 10000 if iter > 1 else round(start + (iter * 10000))
         else:
             self.data_list = self.file_osc.getDotsOSC(0, self.file_osc.m_sdoHdr.NumOSC)
+            self.K_mkV_list = [self.file_osc.m_oscDefMod[i].K_mkV for i in range(0, self.file_osc.m_sdoHdr.NumOSC)]
             datas = self.__get_data_for_predict()
             predictions.extend(self.model.predict(datas))
 

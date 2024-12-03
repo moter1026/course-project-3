@@ -1,34 +1,19 @@
-import os
 import sys
 
 import pyqtgraph as pg
-import matplotlib.pyplot as plt
-import numpy as np
 
-import copy_dataset
-
-from scipy.fft import fft, ifft
-from collections import Counter
-from tensorflow.keras.models import load_model
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import (QWidget, QPushButton,
-                             QLabel, QVBoxLayout,
-                             QHBoxLayout, QLineEdit,
+                             QVBoxLayout, QHBoxLayout,
                              QMainWindow, QFileDialog,
-                             QListWidget, QMessageBox)
+                             QMessageBox)
+
+import Aegis_osc
 
 from Fourier import Fourier
 from work_with_osc import DataOsc
 from work_with_csv import my_csv
 from test_model import TestModel
-
-# Теперь импортируем модуль для работы с osc
-module_path = os.path.abspath("cpp/build/Debug")
-sys.path.append(module_path)
-try:
-    import Aegis_osc
-except ImportError as e:
-    raise "Не удалось импортировать модуль для работы с осциллограммами!"
 
 
 class OscCateg(QMainWindow):
@@ -192,6 +177,7 @@ class OscCateg(QMainWindow):
         list_osc = [self.osc_file.getDotOSC_NOC(el) for el in self.pedict_res[category]]
         list_indexes = [el for el in self.pedict_res[category]]
         self.osc_file.cls()
+        # Переделать метод saveOSC.Передавать только list_indexes
         self.osc_file.saveOSC(file_name, list_osc, list_indexes)
 
 

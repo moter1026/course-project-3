@@ -1,20 +1,13 @@
-import os
+import math
 import random
-import sys
 from collections import Counter
 
 import numpy as np
 from numpy.fft import ifft, fft
 
-from Fourier import Fourier
+import Aegis_osc
 
-# Теперь импортируем модуль для работы с osc
-module_path = os.path.abspath("cpp/build/Debug")
-sys.path.append(module_path)
-try:
-    import Aegis_osc
-except ImportError as e:
-    raise "Не удалось импортировать модуль для работы с осциллограммами!"
+from Fourier import Fourier
 
 
 class DataOsc:
@@ -23,19 +16,49 @@ class DataOsc:
             return
 
     @staticmethod
+    def get_data_from_osc_file(file_name: str, category: str) -> (list[list[int]], list[str], list[int]):
+        """
+        Параметры:
+        * file_name - имя .osc файла
+        * category - категория, к которой относятся все осциллограммы из файла
+
+        Возвращает списки из .osc файла с именем file_name:
+            1) список осциллограмм
+            2) список категорий осциллограамм
+            3) список децибел
+        """
+        categories = []
+        data_oscs = []
+        k_mkV_list = []
+        dB_list = []
+        osc_file = Aegis_osc.File_osc(file_name)
+        num_osc = osc_file.m_sdoHdr.NumOSC
+        list_osc_data = osc_file.getDotsOSC(0, num_osc)
+        for i in range(num_osc):
+            categories.append(category)
+            data_oscs.append(list_osc_data[i])
+            k_mkV_list.append(osc_file.m_oscDefMod[i].K_mkV)
+            dB_list.append(DataOsc.get_dB_osc(list_osc_data[i],
+                                              k_mkV_list[len(k_mkV_list) - 1]))
+        return data_oscs, categories, dB_list
+
+    @staticmethod
     def create_datasets_with_osc(list_osc: list
                                  , csv_categories: list
-                                 , augment: bool = False) -> (list[list], list[str]):
-        """"""
+                                 , augment: bool = False) -> (list[list], list[str], list[int]):
+        """
+        Возвращает кортеж списаков:
+            1. осциллограммы
+            2. категории осциллограмм
+            3. знгачения децибелл
+        """
         data_oscs = []
         categories = []
+        dB_list = []
+        k_mkV_list = []
         # цикл для заполнения списков значениями осциллограмм и категорий
         for ind, file_name in enumerate(list_osc):
-            osc_file = Aegis_osc.File_osc(file_name)
-            num_osc = osc_file.m_sdoHdr.NumOSC
-            categories.extend([csv_categories[ind] for _ in range(num_osc)])
-            list_osc_data = osc_file.getDotsOSC(0, num_osc)
-            data_oscs.extend([list_osc_data[i] for i in range(num_osc)])
+            data_oscs, categories, dB_list = DataOsc.get_data_from_osc_file(file_name, csv_categories[ind])
 
         # цикл для подсчёта кол-ва данных, относящихся к одной категории
         counts = Counter(categories)
@@ -61,6 +84,7 @@ class DataOsc:
                     if count_add > 1 and categories[i] == a[0]:
                         new_osc = DataOsc.augmentation_on_time_cycle(data_oscs[i])
                         data_oscs.append(new_osc)
+                        dB_list.append(DataOsc.get_dB_osc(new_osc, k_mkV_list[i]))
                         categories.append(a[0])
                         count_add -= 1
                     elif count_add <= 0:
@@ -73,20 +97,18 @@ class DataOsc:
                     if d[1] <= counts[d[0]] and categories[i] == d[0]:
                         categories.pop(i)
                         data_oscs.pop(i)
+                        dB_list.pop(i)
                         counts[d[0]] -= 1
                     elif d[1] > counts[d[0]]:
                         break
-
-        counts = Counter(categories)
-
-        return data_oscs, categories
+        return data_oscs, categories, dB_list
 
     @staticmethod
     def augmentation_on_time_cycle(list_osc: list) -> list:
         augm_list = []
         for osc in list_osc:
             augm_list.append(np.roll(osc, random.randint(5, 50)))
-        return  augm_list
+        return augm_list
 
     @staticmethod
     def augmentation_on_time(list_osc: list) -> list:
@@ -191,3 +213,11 @@ class DataOsc:
     def __get_osc_from_spectr(signal: list, current_length: int) -> list:
         """ получаю осциллограмму из спектра """
         return Fourier.four2(signal, d=1)
+
+    @staticmethod
+    def get_dB_osc(signal: list, k_mkV: float) -> float:
+        """Метод рассчитывает Децибелы для осциллограммы"""
+        maximum = abs(max(signal, key=abs))
+
+        res = round(20 * math.log(maximum * k_mkV, 10))
+        return res

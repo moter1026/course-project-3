@@ -98,7 +98,7 @@ class Main_menu(QWidget):
 
         if not hasattr(self, "bttn_create_numpy_datasets"):
             self.bttn_create_numpy_datasets = QPushButton("Создать numpy файлы по датасету")
-            self.bttn_create_numpy_datasets.clicked.connect(self._on_clicked_bttn_create_numpy_datasets)
+            self.bttn_create_numpy_datasets.clicked.connect(self.__on_clicked_bttn_create_numpy_datasets)
             # добавляю в главное меню
             self.main_layout_v.addWidget(self.bttn_create_numpy_datasets)
         # Создаётся кнопка для открытия osc файла
@@ -109,7 +109,7 @@ class Main_menu(QWidget):
             self.main_layout_v.addWidget(self.bttn_open_osc)
         self.bttn_open_osc.setEnabled(False)
 
-    def _on_clicked_bttn_create_numpy_datasets(self) -> None:
+    def __on_clicked_bttn_create_numpy_datasets(self) -> None:
         # item_count = self.list_files.count()
         all_files = self.csv_file.get_values_from_col(0)
         list_osc = [s for s in all_files if (s[s.rfind('.') + 1:] == "osc" or s[s.rfind('.') + 1:] == "OSC")]
@@ -117,7 +117,8 @@ class Main_menu(QWidget):
 
         spectr_list = []
         features_list = []
-        data_oscs, categories = DataOsc.create_datasets_with_osc(list_osc, csv_categories, augment=True)
+        # data_oscs, categories = DataOsc.create_datasets_with_osc(list_osc, csv_categories, augment=True)
+        data_oscs, categories, dB_list = DataOsc.create_datasets_with_osc(list_osc, csv_categories, augment=False)
 
         max_length = max([len(sublist) for sublist in data_oscs])
         smoothed_signal = []
@@ -146,19 +147,16 @@ class Main_menu(QWidget):
 
             smoothed_signal.append(from_spectr)
 
-
-        # plt.plot(range(len(data_oscs[255])), data_oscs[255])
-        # plt.plot(range(len(smoothed_signal[1100])), smoothed_signal[1100], 'b')
-        # plt.show()
-
         # np_data_oscs = np.array(padded_data_oscs)
         np_data_oscs = np.array(smoothed_signal)
         np_categories = np.array(categories)
+        np_dB_list = np.array(list(dB_list))
         np_spectr_list = np.array(spectr_list)
         np_features_list = np.array(features_list)
         name = self.csv_file.csv_path[:self.csv_file.csv_path.rfind(".")]
         np.save(f"{name}_values", np_data_oscs)
         np.save(f"{name}_categories", np_categories)
+        np.save(f"{name}_dB", np_dB_list)
         np.save(f"{name}_spectr", np_spectr_list)
         np.save(f"{name}_features", np_features_list)
 

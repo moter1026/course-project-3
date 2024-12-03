@@ -10,13 +10,7 @@ from PyQt5.QtWidgets import (QWidget, QPushButton,
                              QMessageBox)
 from PyQt5.QtCore import (QPropertyAnimation, QEvent, QObject)
 
-# Теперь импортируем модуль для работы с osc
-module_path = os.path.abspath("cpp/build/Debug")
-sys.path.append(module_path)
-try:
-    import Aegis_osc
-except ImportError as e:
-    raise "Не удалось импортировать модуль для работы с осциллограммами!"
+import Aegis_osc
 
 
 class HoverHandler(QObject):
