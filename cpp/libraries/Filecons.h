@@ -435,8 +435,6 @@ typedef struct TAG_RADIO_OUT
 #define	AEC_ERROR_TYPE	9		// Action_SysMonitor
 #define	TIMER_TYPE		6		// Action_Timer
 
-#define	u_param_data	34
-#define	u_avg_data		33	//25.05.16S
 
 enum	DataTypes { ev_data_old = 0,
 					sys_data = 1,

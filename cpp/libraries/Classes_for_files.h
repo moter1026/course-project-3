@@ -1,39 +1,427 @@
+#pragma once
 #include <logger.h>
 
-#include "afxpriv.h"
-#include <time.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
+#include "afxpriv.h"
+#include <time.h>
 #include <cwchar>    // Для функции mbstowcs
 #include <cstring>   // Для strlen
 #include <string>
+#include <codecvt>
+//#include <Filecons.h>
 
-#pragma once
+
+//список номеров конфигурационных блоков
+#define		CFG_HARDWARE		1       // hardware configuration block - самый важный блок настройки аппаратной части
+#define		CFG_GAINWND			2       // GAINWND - конфигурационный блок настроек положения окна "усиление/время" (для DDM-2 особого смысла не имеет, так как усиление неизменно для этого типа систем)
+#define		CFG_MAINFRAME		3       // MAINFRAME - конфигурационный блок настроек положения главного окна программы
+#define		CFG_AMPWND			4       // AMPWND - конфигурационный блок настроек положения окна "средняя амплитуда/время"
+#define		CFG_AMPTOTALWND		5       // AMPTOTALWND - конфигурационный блок настроек положения окна "средняя суммарная амплитуда/время"
+#define		CFG_EVWND			6       // EVWND - конфигурационный блок настроек положения окна "активность АЭ /время"
+#define		CFG_EVSUMWND		7       // EVSUMWND - конфигурационный блок настроек положения окна "суммарный счет импульсов АЭ /канал"
+#define		CFG_EVRUNWND		8       // EVRUNWND - конфигурационный блок настроек положения окна "суммарный счет импульсов АЭ /время"
+#define		CFG_EVTOTALWND		9		// EVTOTALWND - конфигурационный блок настроек положения окна "суммарная активность / время"
+#define		CFG_RISEWND			10      // RISETIMEWND - конфигурационный блок настроек положения окна "среднее время нарастания / время"
+#define		CFG_DURWND			11      // Duration Wnd - конфигурационный блок настроек положения окна "средняя длительность / время"
+#define		CFG_ALARMS			12      // alarms settings
+#define		CFG_PRINT			13      // printer settings - не используется
+#define		CFG_ENERGYWND		14      // energy window - конфигурационный блок настроек положения окна "средняя энергия /время"
+#define		CFG_DUMMY			15      // DUMMY - не используется
+#define		CFG_TIMER			16      // timers - не используется
+#define		CFG_NOTOTALWND		17      // NOISETOTALWND - конфигурационный блок настроек положения окна "средний уровень шума / канал"
+#define		CFG_TIGWND			18      // Tig window - конфигурационный блок настроек положения окна "среднее число выбросов в АЭ импульсе/время"
+#define		CFG_EVERYAMPWND		19		// EveryAmp real-time window - не используется
+#define		CFG_MAXAMPWND		20		// MaxAmp real-time window - конфигурационный блок настроек положения окна "максимальная амплитуда/время"	
+#define		CFG_GENERAL			21		// General setup configuration
+#define		CFG_AUTOSETUP		22		// Autothreshold setup configuration
+#define		CFG_POSTWNDSOLD		23		// PostWnds	(старая версия)	- не используется
+#define		CFG_HISTWNDSOLD		24		// HistWnds	(старая версия)	- не используется
+#define		CFG_MEASDATA		25		// MeasData	- настройки параметров нового измерения (см. структура MeasData выше)
+#define		CFG_ENRSUMWND		26		// Energy summary window - конфигурационный блок настроек положения окна "сумма энергии / время"
+#define		CFG_SYSTEMINFO		27		// Информация об аппаратной части комплекса и версии ПО для записываемого файла
+#define		CFG_TIGSUMWND		28      // Tig summary window - конфигурационный блок настроек положения окна "суммарный счет выбросов АЭ / время"
+#define		CFG_NOWND			29      // Noise window - конфигурационный блок настроек положения окна "средний уровень шума / время"
+#define		CFG_CNTSUMWND		30      // Count Summ window - конфигурационный блок настроек положения окна "суммарный счет выбросов АЭ / канал"
+#define		CFG_HOTKEYS			31      // Hot Key data configuration block
+#define		CFG_MAXAMPCOUNTWND	32		// Amplitude/Count window - конфигурационный блок настроек положения окна "максимальная амплитуда / максимальное число выбросов"
+#define		CFG_LOCPICT2D		33		// конфигурационный блок настроек положения окна локации типа "Рисунок" 2D
+#define		CFG_LOCPICT3D		34		// конфигурационный блок настроек положения окна локации типа "Рисунок" 3D
+#define		CFG_POSTWNDS		35		// PostWnds	(новая версия) - конфигурационный блок настроек корреляционных окон
+#define		CFG_HISTWNDS		36		// HistWnds	(новая версия) - конфигурационный блок настроек гистограммных окон
+#define		CFG_IPDEVICE		37		// IP-Addresses configuration block	
+#define		CFG_EXPORT			38		// Export configuration block
+#define		CFG_SERVWND			39      // ServWnd - конфигурационный блок настроек положения окна "служебные параметры / время"
+#define		CFG_AMPCRIT			40		// Amplitude criterion block
+#define		CFG_COUNTWND		41      // CountWnd - конфигурационный блок настроек положения окна "скорость счета / время"
+#define		CFG_LEVRCVRWND		42		// Level of transmitter signal window - конфигурационный блок настроек положения окна "уровень сигнала передатчика ППС / время" (только для систем с радиоканалом)
+#define		CFG_LEVPPSWND		43		// Level of receiver signal window - конфигурационный блок настроек положения окна "уровень сигнала приемника ППС / время" (только для систем с радиоканалом)
+#define		CFG_NUMINTWND		44		// Intensity of data reception window - конфигурационный блок настроек положения окна "интенсивность приема / время" (только для систем с радиоканалом)
+#define		CFG_ERRINTWND		45		// Error rates window - конфигурационный блок настроек положения окна "интенсивность ошибок приема / время" (только для систем с радиоканалом)
+#define		CFG_POWERWND		46		// Battery life	- конфигурационный блок настроек положения окна "заряд АКБ / время" (только для систем с радиоканалом)
+#define		CFG_FONT			47		// Настройки текстовых фонтов
+#define		CFG_EVTOTALSUMWND	48		// Sum of all impulses Wnd - конфигурационный блок настроек положения окна "суммарная число импульсов АЭ / время"	
+#define		CFG_RMSWND			49		// RMS window - конфигурационный блок настроек положения окна "RMS / время"
+#define		CFG_ASLWND			50		// ASL window - конфигурационный блок настроек положения окна "ASL / время"
+
+#define		CFG_SDOWND			100     // SDOWND configuration block - конфигурационный блок настроек положения окна "Осциллограмма / время"
+#define		CFG_SPECTRWND		150		// spectrum window configuration block	- конфигурационный блок настроек положения окна "Частотный спектр / время"
+#define		CFG_PARAMETWND		200		// Paramet windows configuration block	- конфигурационный блок настроек положения окна "<Параметрический канал №> / время"
+#define		CFG_PAGE			250		// Page configuration block
+//CFG_ID окон на разных страницах формируется как
+//CFG_XXX в младшем байте младшего слова +
+// 'номер страницы'в младшем байте старшего слова	//24.07.00S
+#define		CFG_PROFILE			251		// Profile configuration block	
+#define		CFG_IMPLINES		252		// Import Line configuration block	
+#define		CFG_SERVICE			253		// Controller settings block	
+#define		CFG_SYNCVIEW		254		// SyncView window settings block - конфигурационный блок настроек положения окна "Синхронный текстовый просмотр импульсов АЭ"
+
+#define NUM_PAR_PER_MOD	4
+
+#define MAX_PAGENAMELENGTH	256
+
+//	где PreFilterData - информация об использованном в ходе сбора данных префильтре
+#define MAX_FDEFS 4
+
+//конфигурационный блок CFG_SERVICE содержит информацию о настройках системы отображения служебных диагностических данных аппаратуры
+//размер блока CFG_SERVICE = NUM_DEVICES * NUM_TYPE * NUM_SERV * sizeof( ServDefMod )
+#define NUM_TYPE	2
+#define NUM_SERV	12
+//NUM_DEVICES - число контроллеров линии (входов DDM-2)
+
+#define NO_LOC		-1000000001
+#define SEVERAL_LOC	-1000000002
+
+#define		CFG_VER_MIN			0
+#define		CFG_MAGIC			0x1515CFCF
+#define		CFG_VER_MAJ			25	//16.02.06S //16.06.17S //18.12.18S
+
+#define		CFG_VER_MAJ_2015	22	//06.02.15Kir
+
+// data event output file
+#define		EV_DATA_VER_MAJ			1
+#define		EV_DATA_VER_MIN			0
+
+// system event output file
+#define		SYS_DATA_VER_MAJ		1
+#define		SYS_DATA_VER_MIN		0
+
+#define		NUM_TYPE				2					//01.06.11Kir
+#define		NUM_SERV				12					//01.06.11Kir
+#define		MAX_DATA_SIZE			28					//25.05.16S
+#define		MAX_FILTER_FDEFS		4
+#define		FLOAT_PRECISION			1000.
+
+//FILTER_CONST
+#define		MEASSUMM_DLG_TYPE		0
+#define		MEASHDRSHOW_DLG_TYPE	1
+#define		FILTERVIEW_DLG_TYPE		2
+
+enum ComboBoxID_T {
+	CMB_ID_NUMBER = 0,
+	CMB_ID_TIME = 1,
+	CMB_ID_CHANNEL = 2,
+	CMB_ID_AMP = 3,
+	CMB_ID_AMP_MKV = 4,
+	CMB_ID_AMP_DB = 5,
+	CMB_ID_AMP_RMS = 6,
+	CMB_ID_AMP_RATIO = 7,
+	CMB_ID_AMP_TIG = 8,
+	CMB_ID_ENER_ADC = 9,
+	CMB_ID_ENERG = 10,
+	CMB_ID_EN_DB = 11,
+	CMB_ID_EN_MARSE = 12,
+	CMB_ID_DUR = 13,
+	CMB_ID_RISE = 14,
+	CMB_ID_COUNT = 15,
+	CMB_ID_FREQ1 = 16,
+	CMB_ID_FLAG_A = 17,
+	CMB_ID_FLAG_D = 18,
+	CMB_ID_FLAG_O = 19,
+	CMB_ID_X = 20,
+	CMB_ID_Y = 21,
+	CMB_ID_Z = 22,
+	CMB_ID_LA = 23,
+	CMB_ID_TAD = 24,
+	CMB_ID_LSTAR = 25,
+	CMB_ID_CLAST = 26,
+	CMB_ID_EVENT = 27,
+	CMB_ID_EV_TOT = 28,
+	CMB_ID_NOISE_DB = 29,
+	CMB_ID_CONTEV = 30,
+	CMB_ID_POWER = 31,
+	CMB_ID_CNTRATE = 32,
+	CMB_ID_PARAMDUR = 33,
+	CMB_ID_NT_START = 34,
+	CMB_ID_NT_SUCCESS = 35,
+	CMB_ID_NT_FAILED = 36,
+	CMB_ID_NT_BREAK = 37,
+	CMB_ID_CT_START = 38,
+	CMB_ID_CT_SUCCESS = 39,
+	CMB_ID_CT_FAILED = 40,
+	CMB_ID_CT_BREAK = 41,
+	CMB_ID_CLB_START = 42,
+	CMB_ID_CLB_SUCCESS = 43,
+	CMB_ID_CLB_FAILED = 44,
+	CMB_ID_CLB_BREAK = 45,
+	CMB_ID_CLB_PAUSED = 46,
+	CMB_ID_CLB_RESUME = 47,
+	CMB_ID_CT_GAIN_START = 48,		//24.09.09 CH
+	CMB_ID_CT_GAIN_CONT = 49,
+	CMB_ID_CT_GAIN_SUCCESS = 50,
+	CMB_ID_CT_GAIN_FAILED = 51,
+	CMB_ID_CT_GAIN_BREAK = 52,
+	CMB_ID_CLB_CHANNUM = 53,		//29.03.10 CH
+	CMB_ID_PLATOFIXED = 54,
+	CMB_ID_PLATOBREAK = 55,
+	CMB_ID_PLATOYES = 56,
+	CMB_ID_PLATONO = 57,
+	CMB_ID_NETFAILED = 58,		//22.03.12S
+	CMB_ID_SEVENT = 59,
+	CMB_ID_LEVENT = 60,
+	CMB_ID_DFTI1 = 61,
+	CMB_ID_DUR_RISE = 62,
+	CMB_ID_NUM_PACK = 63,
+	CMB_ID_DTIME = 64,
+	CMB_ID_AMP_SQV = 65,
+	CMB_ID_FUNC_MAX = 66,
+	CMB_ID_FUNC_MODE = 67,
+	CMB_ID_FUNC_MEAN = 68,
+	CMB_ID_ODDS_EQUAL = 69,
+	CMB_ID_ODDS_MORE = 70,
+	CMB_ID_ODDS_EQUAL_MORE = 71,
+	CMB_ID_ODDS_LESS = 72,
+	CMB_ID_ODDS_EQUAL_LESS = 73,
+	CMB_ID_ACT_MULT = 74,
+	CMB_ID_ACT_DIV = 75,
+	CMB_ID_ACT_LG = 76,
+	CMB_ID_ACT_LN = 77,
+	CMB_ID_ACT_EXP = 78,
+	CMB_ID_SUMM_SUM = 79,
+	CMB_ID_SUMM_DED = 80,
+	CMB_ID_AMP_NOISE = 81,
+	CMB_ID_THIKNESS = 82,
+
+	//None
+	CMB_ID_NONE = 1000,
+
+	//Parametric CMB_ID > 1000!!!
+	CMB_ID_PARAMETRIC = 1001,
+	CMB_ID_PARAMETRIC2 = 1002,
+	CMB_ID_PARAMETRIC3 = 1003,
+	CMB_ID_PARAMETRIC_END = 1004
+
+	//
+};
+
+enum IsPackID {
+	IS_PACK_NONE = 0,		// нет пачки
+	IS_PACK_TRUE = 1,		// пачка
+	IS_PACK_DEAD_TIME = 2			// мёртвое время
+};
+
+enum AeEventID {
+	AE_EVENT_ALL = 0,		// все события
+	AE_EVENT_FIRST = 1,		// первое по кажд.каналу
+	AE_EVENT_MAX = 2,		// макс. по кажд.каналу
+	AE_EVENT_START = 3			// только стартовый импульс АЭ
+};
+
+enum ExportDataID {
+	EXPORT_DATA_AE = 0,		// инфа об АЭ импульсах
+	EXPORT_DATA_PARAM = 1,		// показания парам.датчиков
+	EXPORT_DATA_NOISE = 2,		// инфа о шумах и средних
+	EXPORT_DATA_SYSTEM = 3,		// инфа о системных командах
+	EXPORT_DATA_SERVICE = 4,		// инфа служебная
+	PARAM_DATA_FILTER = 5,		// перечень параметров в окне фильтрации
+	PARAM_DATA_SYNCHRO = 6			// перечень параметров в окне синхропросмотра
+};
+
+enum ParamDataID {							//новые параметры добавлять в конец списка!
+	ID_NUMBER = 0,		//
+	ID_DATE = 1,		//
+	ID_TIME_ABS = 2,		//
+	ID_TIME = 3,		//
+	ID_CHANNEL = 4,		//Внимательно! Это номер канала!
+	ID_AMP = 5,		//
+	ID_AMP_MKV = 6,		//
+	ID_AMP_DB = 7,		//
+	ID_AMP_RMS = 8,		//
+	ID_AMP_RATIO = 9,		//
+	ID_AMP_TIG = 10,		//
+	ID_ENER_ADC = 11,		//
+	ID_ENERG = 12,		//
+	ID_EN_DB = 13,		//
+	ID_EN_MARSE = 14,		//
+	ID_DUR = 15,		//
+	ID_RISE = 16,		//
+	ID_COUNT = 17,		//Внимательно! Это выбросы!
+	ID_FREQ1 = 18,		//
+
+	ID_FLAGS = 19,		//Внимательно! Это флаги!
+	ID_NUM_PACK1 = 20,		//
+	ID_Y1 = 21,		//
+	ID_Z1 = 22,		//
+	ID_LA1 = 23,		//
+	ID_TAD = 24,		//
+	ID_AMP_NOISE = 25,		//
+	ID_THRESH_DB = 26,		//
+	ID_SIGNAL_TYPE = 27		//
+};
+
+//флаги локализации типа события (loc_event)	//21.11.03S //18.06.19S
+#define LOC_IDLE	0		//готово для локации/нет локации
+#define LOC_DONE	1		//успешная локация
+#define EV_PARAM	2		//параметрическое событие
+#define EV_SYS		3		//системное событие
+#define EV_NOISE	4		//шумовая посылка
+#define EV_DEL		5		//не применять для локации (помеха)
+#define EV_MARKER	6		//маркерная посылка	//22.04.04S
+#define UNI_PARAM	7		//параметрическая посылка от UNISCOPE //12.05.17S
+#define UNI_AVG		8		//усреднительная посылка от UNISCOPE //18.06.19S
+#define EV_PASS		16		//пропустить для последующей локации
+#define EV_INCLUDE	0xEF	//включить для последующей локации
+
+
+// CH_INFO_OUT possible types
+#define	CHAN_INFO		3			// start channel
+#define	CHAN_STOP		4			// stop channel
+#define OSC1_INFO		5			// start of 1 OSC
+#define OSC2_INFO		6			// start of 2 OSC
+#define PF_INFO			9			// filters
+#define PAR_INFO		10			// start parameters
+#define PAR_STOP		11			// stop parameters
+#define GAIN_INFO		14			// channel gain
+#define CHANGAIN_INFO	18			// channel start&gain	//13.04.01S
+#define OSC1_STOP		24			// stop of 1 osc
+#define OSC2_STOP		25			// stop of 2 osc
+#define CTRL_PAR_INFO	5			// включение параметрических каналов PCI-8/PCI-N	//10.01.05S
+#define CTRL_PAR_STOP	6			// выключение параметрических каналов PCI-8/PCI-N	//10.01.05S
+
+#define SYNK_CHECK_CONST	429		// проверочная константа готовности старта			//05.06.18S
+#define SYNK_CHECK_NCONST	65106	// проверочная константа готовности старта			//05.06.18S
+
+
+#define MAX_TEXT_LENGTH	68
+#define NUM_RPARAM	5			//27.05.15S
+
+
+// SERVICE_OUT possible types	//30.01.11S
+#define	AEC_ERROR_TYPE	9		// Action_SysMonitor
+#define	TIMER_TYPE		6		// Action_Timer
+
+
+#define LOC_STEP			1024	//256	//07.12.99S
+
+#define	GETDATA_BUF_SIZE	65536	//14.12.06S //25.11.11S	
+#define WRITE_BUF_SIZE		5120	//4096		//20.05
+#define READ_BUF_SIZE		65536	//07.12.99S	//01.10.14S
+#define MESSAGE_BUF			61		//18.12.00LS + к-во интервалов усредн., накопленных перед SendMessage
+#define BOUND_LEVEL			4096	//2048
+
+#define NO_LOC		-1000000001	//17.06
+#define SEVERAL_LOC	-1000000002	//17.06
+
+#define XCOOR		0x01		//17.03.99S в файле представлены Х координаты
+#define XYCOOR		0x02		//17.03.99S в файле представлены Х и Y координаты
+#define XYZCOOR		0x03		//24.04.01S в файле представлены X, Y и Z координаты
+#define LAMP		0x04		//17.03.99S в файле представлена Локационная амплитуда
 
 
 namespace py = pybind11;
 
-#define MAX_FDEFS 4
-
-std::wstring get_wstr(char* l_str) {
-	std::setlocale(LC_ALL, "Russian_Russia.1251");
-	// Определяем длину новой строки и выделяем память для wchar_t строки
-	size_t len = std::strlen(l_str) + 1;
-	wchar_t* wchar_str = new wchar_t[len];
-	// Преобразуем из многобайтовой строки в широкую строку
-	std::mbstowcs(wchar_str, l_str, len);
-	std::wstring w_str = std::wstring(wchar_str);
-
-	delete[] wchar_str;
-	return w_str;
-};
+std::string wstring_to_ansi(const std::wstring& wstr);
+std::string wstring_to_string(const std::wstring& wstr);
+std::wstring string_to_wstring(const std::string& str);
+template<typename ... Args>
+std::string string_format(const std::string& format, Args ... args);
+std::wstring get_wstr(char* l_str);
 template <typename T>
-std::vector<T> get_vector_from_arr(T* arr, int len) {
-	std::vector<T> local_vector;
-	for (size_t i = 0; i < len; i++) { local_vector.push_back(arr[i]); }
-	return local_vector;
-};
+std::vector<T> get_vector_from_arr(T* arr, int len);
+double ExtractTimeQuant(WORD expnd, int shift);
+// Функция для биндинга FileHdr
+void bind_FileHdr(py::module_& m);
+// Функция для биндинга FilterDef
+void bind_FilterDef(py::module_& m);
+// Функция для биндинга FilterDef
+void bind_PreFilterData(py::module_& m);
+// Функция для биндинга MeasData
+void bind_MeasData(py::module_& m);
+// Функция для биндинга SDOHdr
+void bind_SDOHdr(py::module_& m);
+// Функция для биндинга AE_TIME
+void bind_AE_TIME(py::module_& m);
+// Функция для биндинга OSCDefMod
+void bind_OSCDefMod(py::module_& m);
+// Функция для биндинга CfgFileHdr
+void bind_CfgFileHdr(py::module_& m);
+// Функция для биндинга CfgBlockDescr
+void bind_CfgBlockDescr(py::module_& m);
+// Функция для биндинга CfgFileInfo
+void bind_CfgFileInfo(py::module_& m);
+// Функция для биндинга ColorMod
+void bind_ColorMod(py::module_& m);
+// Функция для биндинга ChanDefMod
+void bind_ChanDefMod(py::module_& m);
+// Функция для биндинга TimeDefMod
+void bind_TimeDefMod(py::module_& m);
+// Функция для биндинга CalibrDefMod
+void bind_CalibrDefMod(py::module_& m);
+// Функция для биндинга ParDefMod
+void bind_ParDefMod(py::module_& m);
+// Функция для биндинга ald_drv_addr_wrapper
+void bind_ald_drv_addr_t(py::module_& m);
+// Функция для биндинга FullDefMod
+void bind_FullDefMod(py::module_& m);
+// Функция для биндинга MFData
+void bind_MFData(py::module_& m);
+// Функция для биндинга ScaleData
+void bind_ScaleData(py::module_& m);
+// Функция для биндинга GraphData
+void bind_GraphData(py::module_& m);
+// Функция для биндинга AlarmData
+void bind_AlarmData(py::module_& m);
+// Функция для биндинга GeneralSetupMod
+void bind_GeneralSetupMod(py::module_& m);
+// Функция для биндинга AutoThresholdSetup
+void bind_AutoThresholdSetup(py::module_& m);
+// Функция для биндинга HotKeyData
+void bind_HotKeyData(py::module_& m);
+// Функция для биндинга CPostWin
+void bind_CPostWin(py::module_& m);
+// Функция для биндинга Graph3DData
+void bind_Graph3DData(py::module_& m);
+// Функция для биндинга CHistWin
+void bind_CHistWin(py::module_& m);
+// Функция для биндинга NetIPInfo
+void bind_NetIPInfo(py::module_& m);
+// Функция для биндинга ClassAmpDef
+void bind_ClassAmpDef(py::module_& m);
+// Функция для биндинга PageName
+void bind_PageName(py::module_& m);
+// Функция для биндинга PageData
+void bind_PageData(py::module_& m);
+// Функция для биндинга ILData
+void bind_ILData(py::module_& m);
+// Функция для биндинга ServDefMod
+void bind_ServDefMod(py::module_& m);
+// Функция для биндинга EV_DATA_OUT_OLD
+void bind_EV_DATA_OUT_OLD(py::module_& m);
+// Функция для биндинга CH_INFO_OUT
+void bind_CH_INFO_OUT(py::module_& m);
+// Функция для биндинга EV_DATA_OUT
+void bind_EV_DATA_OUT(py::module_& m);
+// Функция для биндинга EV_PARAM_OUT
+void bind_EV_PARAM_OUT(py::module_& m);
+// Функция для биндинга EV_AVG_OUT
+void bind_EV_AVG_OUT(py::module_& m);
+// Функция для биндинга MARKER_OUT
+void bind_MARKER_OUT(py::module_& m);
+// Функция для биндинга TEXT_OUT
+void bind_TEXT_OUT(py::module_& m);
+
+
 // Формат файла осциллограмм АЭ систем A-Line DDM, DDM-2, PCI-N и PCI8 для всех версий //created 08.05.2020
 
 // сначала пишутся заголовки файла данных TAGFileHdr и параметры измерения TAGMeasData
@@ -53,18 +441,6 @@ struct FileHdr
 	}
 };
 
-// Функция для биндинга FileHdr
-void bind_FileHdr(py::module_& m) {
-	py::class_<FileHdr>(m, "FileHdr")
-		.def(py::init<>())
-		.def_readwrite("signature", &FileHdr::signature)
-		.def_readwrite("ver_maj", &FileHdr::ver_maj)
-		.def_readwrite("ver_min", &FileHdr::ver_min)
-		.def_readwrite("ftype", &FileHdr::ftype)
-		.def_readwrite("hard_version", &FileHdr::hard_version)
-		.def_readwrite("soft_version", &FileHdr::soft_version)
-		.def("reserved", &FileHdr::get_reserved);
-};
 
 struct FilterDef
 {
@@ -89,17 +465,7 @@ struct FilterDef
 	};
 };
 
-// Функция для биндинга FilterDef
-void bind_FilterDef(py::module_& m) {
-	py::class_<FilterDef>(m, "FilterDef")
-		.def(py::init<>())
-		.def_readwrite("param", &FilterDef::param)
-		.def_readwrite("valid", &FilterDef::valid)
-		.def("get_more_than", &FilterDef::get_more_than)
-		.def("get_less_than", &FilterDef::get_less_than)
-		.def("get_p_name", &FilterDef::get_p_name)
-		.def("get_interv_valid", &FilterDef::get_interv_valid);
-};
+
 
 struct PreFilterData
 {
@@ -122,18 +488,7 @@ struct PreFilterData
 	};
 };
 
-// Функция для биндинга FilterDef
-void bind_PreFilterData(py::module_& m) {
-	py::class_<PreFilterData>(m, "PreFilterData")
-		.def(py::init<>())
-		.def_readwrite("DontSave", &PreFilterData::DontSave)
-		.def_readwrite("ver_PFilter", &PreFilterData::ver_PFilter)
-		.def_readwrite("DontProcess", &PreFilterData::DontProcess)
-		.def_readwrite("IsKeep", &PreFilterData::IsKeep)
-		.def("get_reserved", &PreFilterData::get_reserved)
-		.def("get_AndOr", &PreFilterData::get_AndOr)
-		.def("get_FltDef", &PreFilterData::get_FltDef);
-};
+
 
 ////////////////////////////////////////////////////////////////
 struct MeasData
@@ -150,8 +505,8 @@ struct MeasData
 	UINT meas_min;                  // and minutes
 	UINT init_hour;                 // initial scale hour
 	UINT init_min;                  // initial scale min
-	__time32_t start_time;              // start time
-	__time32_t stop_time;               // stop time
+	__time32_t start_time;          // start time
+	__time32_t stop_time;           // stop time
 	UINT avg_time;                  // averaging time in microseconds
 	char data_name[255];            // file name to store data
 	char cfg_name[255];             // file name to store configuration
@@ -220,62 +575,7 @@ struct MeasData
 	};
 };
 
-// Функция для биндинга MeasData
-void bind_MeasData(py::module_& m) {
-	py::class_<MeasData>(m, "MeasData")
-		.def(py::init<>())
-		.def_readwrite("ver_maj", &MeasData::ver_maj)
-		.def_readwrite("ver_min", &MeasData::ver_min)
-		.def_readwrite("comsize", &MeasData::comsize)
-		.def_readwrite("filtered_flag", &MeasData::filtered_flag)
-		.def_readwrite("meas_hour", &MeasData::meas_hour)
-		.def_readwrite("meas_min", &MeasData::meas_min)
-		.def_readwrite("init_hour", &MeasData::init_hour)
-		.def_readwrite("init_min", &MeasData::init_min)
-		.def_readwrite("start_time", &MeasData::start_time)
-		.def_readwrite("stop_time", &MeasData::stop_time)
-		.def_readwrite("avg_time", &MeasData::avg_time)
-		.def_readwrite("num_SDO", &MeasData::num_SDO)
-		.def_readwrite("DontWriteDisk", &MeasData::DontWriteDisk)
-		.def_readwrite("DontWritePar", &MeasData::DontWritePar)
-		.def_readwrite("DontWriteNoise", &MeasData::DontWriteNoise)
-		.def_readwrite("DontWriteSDO", &MeasData::DontWriteSDO)
-		.def_readwrite("ActivatePreFilter", &MeasData::ActivatePreFilter)
-		.def_readwrite("PFData", &MeasData::PFData)
-		.def_readwrite("IsCoorPresent", &MeasData::IsCoorPresent)
-		.def_readwrite("TypeLoc", &MeasData::TypeLoc)
-		.def_readwrite("LENGTH", &MeasData::LENGTH)
-		.def_readwrite("HEIGHT", &MeasData::HEIGHT)
-		.def_readwrite("SHIFT_HEIGHT", &MeasData::SHIFT_HEIGHT)
-		.def_readwrite("SHIFT_LEFT", &MeasData::SHIFT_LEFT)
-		.def_readwrite("ClusterLength", &MeasData::ClusterLength)
-		.def_readwrite("ClusterWidth", &MeasData::ClusterWidth)
-		.def_readwrite("BOUND", &MeasData::BOUND)
-		.def_readwrite("SumEvents", &MeasData::SumEvents)
-		.def_readwrite("IsMeasTime", &MeasData::IsMeasTime)
-		.def_readwrite("IsEvents", &MeasData::IsEvents)
-		.def_readwrite("IsTig", &MeasData::IsTig)
-		.def_readwrite("IsSize", &MeasData::IsSize)
-		.def_readwrite("IsOSC", &MeasData::IsOSC)
-		.def_readwrite("IsRepeat", &MeasData::IsRepeat)
-		.def_readwrite("Type", &MeasData::Type)
-		.def("get_obj_name", &MeasData::get_obj_name)
-		.def("get_oper_name", &MeasData::get_oper_name)
-		.def("get_reference", &MeasData::get_reference)
-		.def("get_comments", &MeasData::get_comments)
-		.def("get_data_name", &MeasData::get_data_name)
-		.def("get_cfg_name", &MeasData::get_cfg_name)
-		.def("get_sdo_name", &MeasData::get_sdo_name)
-		.def("get_source_name", &MeasData::get_source_name)
-		.def("get_local_name", &MeasData::get_local_name)
-		.def("get_MeasType", &MeasData::get_MeasType)
-		.def("get_Reserved", &MeasData::get_Reserved);
-};
-
 //	где PreFilterData - информация об использованном в ходе сбора данных префильтре
-#define MAX_FDEFS 4
-
-
 
 
 
@@ -296,17 +596,6 @@ struct SDOHdr
 	};
 };
 
-// Функция для биндинга SDOHdr
-void bind_SDOHdr(py::module_& m) {
-	py::class_<SDOHdr>(m, "SDOHdr")
-		.def(py::init<>())
-		.def_readwrite("NumOSC", &SDOHdr::NumOSC)
-		.def_readwrite("InfoPointer", &SDOHdr::InfoPointer)
-		.def_readwrite("DefSize", &SDOHdr::DefSize)
-		.def_readwrite("BaseSize", &SDOHdr::BaseSize)
-		.def_readwrite("Din", &SDOHdr::Din)
-		.def("get_reserved", &SDOHdr::get_reserved);
-};
 
 
 ////////////////////////////////////////////////////////////////
@@ -321,13 +610,7 @@ struct AE_TIME
 	ulong	usec;			// microseconds since last second
 };
 
-// Функция для биндинга AE_TIME
-void bind_AE_TIME(py::module_& m) {
-	py::class_<AE_TIME>(m, "AE_TIME")
-		.def(py::init<>())
-		.def_readwrite("seconds", &AE_TIME::seconds)
-		.def_readwrite("usec", &AE_TIME::usec);
-};
+
 ///////////////////////////////////////////////////////////////
 // далее собственно данные
 // сначала идёт структура-заголовок осциллограммы, затем данные
@@ -378,47 +661,7 @@ struct OSCDefMod
 	};
 };
 
-// Функция для биндинга OSCDefMod
-void bind_OSCDefMod(py::module_& m) {
-	py::class_<OSCDefMod>(m, "OSCDefMod")
-		.def(py::init<>())
-		.def_readwrite("chan", &OSCDefMod::chan)
-		.def_readwrite("num_osc", &OSCDefMod::num_osc)
-		.def_readwrite("enabled", &OSCDefMod::enabled)
-		.def_readwrite("osc_color", &OSCDefMod::osc_color)
-		.def_readwrite("is_color_chan", &OSCDefMod::is_color_chan)
-		.def_readwrite("save", &OSCDefMod::save)
-		.def_readwrite("num_wind", &OSCDefMod::num_wind)
-		.def_readwrite("freq", &OSCDefMod::freq)
-		.def_readwrite("buf_size", &OSCDefMod::buf_size)
-		.def_readwrite("buf_time", &OSCDefMod::buf_time)
-		.def_readwrite("pre_mod", &OSCDefMod::pre_mod)
-		.def_readwrite("is_th_chan", &OSCDefMod::is_th_chan)
-		.def_readwrite("tresh_db_osc", &OSCDefMod::tresh_db_osc)
-		.def_readwrite("tresh_ADC_osc", &OSCDefMod::tresh_ADC_osc)
-		.def_readwrite("K_mkV", &OSCDefMod::K_mkV)
-		.def_readwrite("seek_wave", &OSCDefMod::seek_wave)
-		.def_readwrite("osc_time", &OSCDefMod::osc_time)
-		.def_readwrite("ADC_bit", &OSCDefMod::ADC_bit)
-		.def_readwrite("is_spect", &OSCDefMod::is_spect)
-		.def_readwrite("changed", &OSCDefMod::changed)
-		.def_readwrite("freq_max", &OSCDefMod::freq_max)
-		.def_readwrite("notuse_pre_mod", &OSCDefMod::notuse_pre_mod)
-		.def_readwrite("buf_size_max", &OSCDefMod::buf_size_max)
-		.def_readwrite("seek_wave_high", &OSCDefMod::seek_wave_high)
-		.def_readwrite("tFastest", &OSCDefMod::tFastest)
-		.def_readwrite("tR", &OSCDefMod::tR)
-		.def_readwrite("calibration", &OSCDefMod::calibration)
-		.def_readwrite("to", &OSCDefMod::to)
-		.def_readwrite("to_ald", &OSCDefMod::to_ald)
-		.def_readwrite("L", &OSCDefMod::L)
-		.def_readwrite("L_ald", &OSCDefMod::L_ald)
-		.def_readwrite("d", &OSCDefMod::d)
-		.def_readwrite("bPowerMethod", &OSCDefMod::bPowerMethod)
-		.def_readwrite("nsec", &OSCDefMod::nsec)
-		.def_readwrite("bSyncAEO", &OSCDefMod::bSyncAEO)
-		.def("get_reserved", &OSCDefMod::get_reserved);
-};
+
 
 
 
@@ -439,16 +682,7 @@ struct CfgFileHdr
 	};
 };
 
-// Функция для биндинга CfgFileHdr
-void bind_CfgFileHdr(py::module_& m) {
-	py::class_<CfgFileHdr>(m, "CfgFileHdr")
-		.def(py::init<>())
-		.def_readwrite("magic_word", &CfgFileHdr::magic_word)
-		.def_readwrite("ver_maj", &CfgFileHdr::ver_maj)
-		.def_readwrite("ver_min", &CfgFileHdr::ver_min)
-		.def_readwrite("info_size", &CfgFileHdr::info_size)
-		.def("get_reserved", &CfgFileHdr::get_reserved);
-};
+
 
 ////////////////////////////////////////////////////////////////
 //конфигурационные инфо-блоки
@@ -459,27 +693,14 @@ struct CfgBlockDescr
 	// cfg file info structure
 	UINT block_size;            // cfg block size
 };
-// Функция для биндинга CfgBlockDescr
-void bind_CfgBlockDescr(py::module_& m) {
-	py::class_<CfgBlockDescr>(m, "CfgBlockDescr")
-		.def(py::init<>())
-		.def_readwrite("magic_word", &CfgBlockDescr::block_type)
-		.def_readwrite("ver_maj", &CfgBlockDescr::block_offset)
-		.def_readwrite("ver_min", &CfgBlockDescr::block_size);
-};
+
 struct CfgFileInfo
 {
 	UINT num_cfg_blocks;        // number of configuration blocks in file
 	UINT mem_size;              // size of configuration data
-	CfgBlockDescr cfg_blocks[];  // unsized array of descriptors;
+	CfgBlockDescr* cfg_blocks; // unsized array of descriptors;
 };
-// Функция для биндинга CfgFileInfo
-void bind_CfgFileInfo(py::module_& m) {
-	py::class_<CfgFileInfo>(m, "CfgFileInfo")
-		.def(py::init<>())
-		.def_readwrite("magic_word", &CfgFileInfo::num_cfg_blocks)
-		.def_readwrite("ver_maj", &CfgFileInfo::mem_size);
-};
+
 
 //общая длина блока CfgFileInfo равна CfgFileHdr.info_size байт
 
@@ -489,69 +710,7 @@ void bind_CfgFileInfo(py::module_& m) {
 //в дескрипторе с block_type = X вы найдете значение block_offset - смещение начала блока X относительно начала буфера "configuration data"
 //и значение block_size - размер блока hardware configuration.
 
-//список номеров конфигурационных блоков
-#define		CFG_HARDWARE		1       // hardware configuration block - самый важный блок настройки аппаратной части
-#define		CFG_GAINWND			2       // GAINWND - конфигурационный блок настроек положения окна "усиление/время" (для DDM-2 особого смысла не имеет, так как усиление неизменно для этого типа систем)
-#define		CFG_MAINFRAME		3       // MAINFRAME - конфигурационный блок настроек положения главного окна программы
-#define		CFG_AMPWND			4       // AMPWND - конфигурационный блок настроек положения окна "средняя амплитуда/время"
-#define		CFG_AMPTOTALWND		5       // AMPTOTALWND - конфигурационный блок настроек положения окна "средняя суммарная амплитуда/время"
-#define		CFG_EVWND			6       // EVWND - конфигурационный блок настроек положения окна "активность АЭ /время"
-#define		CFG_EVSUMWND		7       // EVSUMWND - конфигурационный блок настроек положения окна "суммарный счет импульсов АЭ /канал"
-#define		CFG_EVRUNWND		8       // EVRUNWND - конфигурационный блок настроек положения окна "суммарный счет импульсов АЭ /время"
-#define		CFG_EVTOTALWND		9		// EVTOTALWND - конфигурационный блок настроек положения окна "суммарная активность / время"
-#define		CFG_RISEWND			10      // RISETIMEWND - конфигурационный блок настроек положения окна "среднее время нарастания / время"
-#define		CFG_DURWND			11      // Duration Wnd - конфигурационный блок настроек положения окна "средняя длительность / время"
-#define		CFG_ALARMS			12      // alarms settings
-#define		CFG_PRINT			13      // printer settings - не используется
-#define		CFG_ENERGYWND		14      // energy window - конфигурационный блок настроек положения окна "средняя энергия /время"
-#define		CFG_DUMMY			15      // DUMMY - не используется
-#define		CFG_TIMER			16      // timers - не используется
-#define		CFG_NOTOTALWND		17      // NOISETOTALWND - конфигурационный блок настроек положения окна "средний уровень шума / канал"
-#define		CFG_TIGWND			18      // Tig window - конфигурационный блок настроек положения окна "среднее число выбросов в АЭ импульсе/время"
-#define		CFG_EVERYAMPWND		19		// EveryAmp real-time window - не используется
-#define		CFG_MAXAMPWND		20		// MaxAmp real-time window - конфигурационный блок настроек положения окна "максимальная амплитуда/время"	
-#define		CFG_GENERAL			21		// General setup configuration
-#define		CFG_AUTOSETUP		22		// Autothreshold setup configuration
-#define		CFG_POSTWNDSOLD		23		// PostWnds	(старая версия)	- не используется
-#define		CFG_HISTWNDSOLD		24		// HistWnds	(старая версия)	- не используется
-#define		CFG_MEASDATA		25		// MeasData	- настройки параметров нового измерения (см. структура MeasData выше)
-#define		CFG_ENRSUMWND		26		// Energy summary window - конфигурационный блок настроек положения окна "сумма энергии / время"
-#define		CFG_SYSTEMINFO		27		// Информация об аппаратной части комплекса и версии ПО для записываемого файла
-#define		CFG_TIGSUMWND		28      // Tig summary window - конфигурационный блок настроек положения окна "суммарный счет выбросов АЭ / время"
-#define		CFG_NOWND			29      // Noise window - конфигурационный блок настроек положения окна "средний уровень шума / время"
-#define		CFG_CNTSUMWND		30      // Count Summ window - конфигурационный блок настроек положения окна "суммарный счет выбросов АЭ / канал"
-#define		CFG_HOTKEYS			31      // Hot Key data configuration block
-#define		CFG_MAXAMPCOUNTWND	32		// Amplitude/Count window - конфигурационный блок настроек положения окна "максимальная амплитуда / максимальное число выбросов"
-#define		CFG_LOCPICT2D		33		// конфигурационный блок настроек положения окна локации типа "Рисунок" 2D
-#define		CFG_LOCPICT3D		34		// конфигурационный блок настроек положения окна локации типа "Рисунок" 3D
-#define		CFG_POSTWNDS		35		// PostWnds	(новая версия) - конфигурационный блок настроек корреляционных окон
-#define		CFG_HISTWNDS		36		// HistWnds	(новая версия) - конфигурационный блок настроек гистограммных окон
-#define		CFG_IPDEVICE		37		// IP-Addresses configuration block	
-#define		CFG_EXPORT			38		// Export configuration block
-#define		CFG_SERVWND			39      // ServWnd - конфигурационный блок настроек положения окна "служебные параметры / время"
-#define		CFG_AMPCRIT			40		// Amplitude criterion block
-#define		CFG_COUNTWND		41      // CountWnd - конфигурационный блок настроек положения окна "скорость счета / время"
-#define		CFG_LEVRCVRWND		42		// Level of transmitter signal window - конфигурационный блок настроек положения окна "уровень сигнала передатчика ППС / время" (только для систем с радиоканалом)
-#define		CFG_LEVPPSWND		43		// Level of receiver signal window - конфигурационный блок настроек положения окна "уровень сигнала приемника ППС / время" (только для систем с радиоканалом)
-#define		CFG_NUMINTWND		44		// Intensity of data reception window - конфигурационный блок настроек положения окна "интенсивность приема / время" (только для систем с радиоканалом)
-#define		CFG_ERRINTWND		45		// Error rates window - конфигурационный блок настроек положения окна "интенсивность ошибок приема / время" (только для систем с радиоканалом)
-#define		CFG_POWERWND		46		// Battery life	- конфигурационный блок настроек положения окна "заряд АКБ / время" (только для систем с радиоканалом)
-#define		CFG_FONT			47		// Настройки текстовых фонтов
-#define		CFG_EVTOTALSUMWND	48		// Sum of all impulses Wnd - конфигурационный блок настроек положения окна "суммарная число импульсов АЭ / время"	
-#define		CFG_RMSWND			49		// RMS window - конфигурационный блок настроек положения окна "RMS / время"
-#define		CFG_ASLWND			50		// ASL window - конфигурационный блок настроек положения окна "ASL / время"
 
-#define		CFG_SDOWND			100     // SDOWND configuration block - конфигурационный блок настроек положения окна "Осциллограмма / время"
-#define		CFG_SPECTRWND		150		// spectrum window configuration block	- конфигурационный блок настроек положения окна "Частотный спектр / время"
-#define		CFG_PARAMETWND		200		// Paramet windows configuration block	- конфигурационный блок настроек положения окна "<Параметрический канал №> / время"
-#define		CFG_PAGE			250		// Page configuration block
-//CFG_ID окон на разных страницах формируется как
-//CFG_XXX в младшем байте младшего слова +
-// 'номер страницы'в младшем байте старшего слова	//24.07.00S
-#define		CFG_PROFILE			251		// Profile configuration block	
-#define		CFG_IMPLINES		252		// Import Line configuration block	
-#define		CFG_SERVICE			253		// Controller settings block	
-#define		CFG_SYNCVIEW		254		// SyncView window settings block - конфигурационный блок настроек положения окна "Синхронный текстовый просмотр импульсов АЭ"
 
 
 struct ColorMod
@@ -564,14 +723,7 @@ struct ColorMod
 		return py::array_t<UINT>({ 16 }, this->reserved);
 	};
 };
-// Функция для биндинга ColorMod
-void bind_ColorMod(py::module_& m) {
-	py::class_<ColorMod>(m, "ColorMod")
-		.def(py::init<>())
-		.def_readwrite("ch_color", &ColorMod::ch_color)
-		.def_readwrite("changed", &ColorMod::changed)
-		.def("get_reserved", &ColorMod::get_reserved);
-};
+
 struct ChanDefMod
 {
 	BOOL		enabled;		//включение (0-выключен)
@@ -591,23 +743,7 @@ struct ChanDefMod
 		return py::array_t<UINT>({ 14 }, this->reserved);
 	};
 };
-// Функция для биндинга ChanDefMod
-void bind_ChanDefMod(py::module_& m) {
-	py::class_<ChanDefMod>(m, "ChanDefMod")
-		.def(py::init<>())
-		.def_readwrite("enabled", &ChanDefMod::enabled)
-		.def_readwrite("show", &ChanDefMod::show)
-		.def_readwrite("high_filter", &ChanDefMod::high_filter)
-		.def_readwrite("low_filter", &ChanDefMod::low_filter)
-		.def_readwrite("gain_db", &ChanDefMod::gain_db)
-		.def_readwrite("d_ADC", &ChanDefMod::d_ADC)
-		.def_readwrite("tresh_db", &ChanDefMod::tresh_db)
-		.def_readwrite("tresh_ADC", &ChanDefMod::tresh_ADC)
-		.def_readwrite("changed", &ChanDefMod::changed)
-		.def_readwrite("changed_ON", &ChanDefMod::changed_ON)
-		.def_readwrite("autotresh", &ChanDefMod::autotresh)
-		.def("get_reserved", &ChanDefMod::get_reserved);
-};
+
 struct TimeDefMod
 {
 	UINT		sceto;			//ИКИ (SCETO)
@@ -621,17 +757,7 @@ struct TimeDefMod
 		return py::array_t<UINT>({ 16 }, this->reserved);
 	};
 };
-// Функция для биндинга TimeDefMod
-void bind_TimeDefMod(py::module_& m) {
-	py::class_<TimeDefMod>(m, "TimeDefMod")
-		.def(py::init<>())
-		.def_readwrite("sceto", &TimeDefMod::sceto)
-		.def_readwrite("rtto", &TimeDefMod::rtto)
-		.def_readwrite("d_time", &TimeDefMod::d_time)
-		.def_readwrite("max_dur", &TimeDefMod::max_dur)
-		.def_readwrite("changed", &TimeDefMod::changed)
-		.def("get_reserved", &TimeDefMod::get_reserved);
-};
+
 struct CalibrDefMod
 {
 	BOOL		enabled;		//включен калибратор
@@ -656,28 +782,7 @@ struct CalibrDefMod
 		return py::array_t<UINT>({ 7 }, this->reserved);
 	};
 };
-// Функция для биндинга CalibrDefMod
-void bind_CalibrDefMod(py::module_& m) {
-	py::class_<CalibrDefMod>(m, "CalibrDefMod")
-		.def(py::init<>())
-		.def_readwrite("enabled", &CalibrDefMod::enabled)
-		.def_readwrite("K_calibr", &CalibrDefMod::K_calibr)
-		.def_readwrite("d_DAC", &CalibrDefMod::d_DAC)
-		.def_readwrite("Amp_v", &CalibrDefMod::Amp_v)
-		.def_readwrite("Amp_DAC", &CalibrDefMod::Amp_DAC)
-		.def_readwrite("Freq_Calibr", &CalibrDefMod::Freq_Calibr)
-		.def_readwrite("changed", &CalibrDefMod::changed)
-		.def_readwrite("changed_ON", &CalibrDefMod::changed_ON)
-		.def_readwrite("mode", &CalibrDefMod::mode)
-		.def_readwrite("Dur_DAC", &CalibrDefMod::Dur_DAC)
-		.def_readwrite("F1", &CalibrDefMod::F1)
-		.def_readwrite("F2", &CalibrDefMod::F2)
-		.def_readwrite("Amin", &CalibrDefMod::Amin)
-		.def_readwrite("Smin", &CalibrDefMod::Smin)
-		.def_readwrite("Smax", &CalibrDefMod::Smax)
-		.def_readwrite("PAEtype", &CalibrDefMod::PAEtype)
-		.def("get_reserved", &CalibrDefMod::get_reserved);
-};
+
 struct ParDefMod		//для DDM-2 пока не используется
 {
 	BOOL		enabled;		//включен пар. канал
@@ -697,23 +802,7 @@ struct ParDefMod		//для DDM-2 пока не используется
 		return py::array_t<UINT>({ 14 }, this->reserved);
 	};
 };
-// Функция для биндинга ParDefMod
-void bind_ParDefMod(py::module_& m) {
-	py::class_<ParDefMod>(m, "ParDefMod")
-		.def(py::init<>())
-		.def_readwrite("enabled", &ParDefMod::enabled)
-		.def_readwrite("K_par", &ParDefMod::K_par)
-		.def_readwrite("d_ADC_par", &ParDefMod::d_ADC_par)
-		.def_readwrite("Freq_par", &ParDefMod::Freq_par)
-		.def_readwrite("Freq_multi", &ParDefMod::Freq_multi)
-		.def_readwrite("K1", &ParDefMod::K1)
-		.def_readwrite("K2", &ParDefMod::K2)
-		.def_readwrite("changed", &ParDefMod::changed)
-		.def_readwrite("changed_ON", &ParDefMod::changed_ON)
-		.def_readwrite("lMin", &ParDefMod::lMin)
-		.def_readwrite("lMax", &ParDefMod::lMax)
-		.def("get_reserved", &ParDefMod::get_reserved);
-};
+
 union ald_drv_addr_t {
 	DWORD	FAddr;	/* Full address */
 	struct {
@@ -738,18 +827,10 @@ public:
 	void set_Board(WORD value) { addr.bc.Board = value; }
 };
 
-// Функция для биндинга ald_drv_addr_wrapper
-void bind_ald_drv_addr_t(py::module_& m) {
-	py::class_<ald_drv_addr_wrapper>(m, "ald_drv_addr_t")
-		.def(py::init<>())
-		.def_property("FAddr", &ald_drv_addr_wrapper::get_FAddr, &ald_drv_addr_wrapper::set_FAddr)
-		.def_property("Channel", &ald_drv_addr_wrapper::get_Channel, &ald_drv_addr_wrapper::set_Channel)
-		.def_property("Board", &ald_drv_addr_wrapper::get_Board, &ald_drv_addr_wrapper::set_Board);
-};
+
 //Структура hardware configuration block:
 //со значением CFG_HARDWARE = 1 выступает hardware configuration block, который состоит из некоторого числа структур-описателей каналов:
 //FullDefMod, число этих структур совпадает с числом инталлированных в системе каналов и теоретически неограничено
-#define NUM_PAR_PER_MOD	4
 struct FullDefMod
 {
 	UINT		 chan;
@@ -782,29 +863,7 @@ struct FullDefMod
 	};
 };
 
-// Функция для биндинга FullDefMod
-void bind_FullDefMod(py::module_& m) {
-	py::class_<FullDefMod>(m, "FullDefMod")
-		.def(py::init<>())
-		.def_readwrite("chan", &FullDefMod::chan)
-		.def_readwrite("color_def", &FullDefMod::color_def)
-		.def_readwrite("chan_def", &FullDefMod::chan_def)
-		.def_readwrite("time_def", &FullDefMod::time_def)
-		.def("get_osc_def", &FullDefMod::get_osc_def)
-		.def_readwrite("calibr_def", &FullDefMod::calibr_def)
-		.def("get_par_def", &FullDefMod::get_par_def)
-		.def_readwrite("addr", &FullDefMod::addr)
-		.def_readwrite("DeviceName", &FullDefMod::DeviceName)
-		.def_readwrite("SubDeviceName", &FullDefMod::SubDeviceName)
-		.def_readwrite("num_Rmod", &FullDefMod::num_Rmod)
-		.def_readwrite("gpre", &FullDefMod::gpre)
-		.def_readwrite("shift0", &FullDefMod::shift0)
-		.def_readwrite("DeviceType", &FullDefMod::DeviceType)
-		.def_readwrite("FilterType", &FullDefMod::FilterType)
-		.def_readwrite("VersionModule", &FullDefMod::VersionModule)
-		.def_readwrite("Capability", &FullDefMod::Capability)
-		.def("get_reserved", &FullDefMod::get_reserved);
-};
+
 
 /////////////////////////////////////////////////////
 //конфигурационные блоки настройки положения окна XXX служит для сохранения положения и размера окна XXX на страницах отображения
@@ -816,13 +875,7 @@ struct MFData
 	RECT rc;                // screen coordinates
 	WINDOWPLACEMENT wp;     // window placement structure
 };
-// Функция для биндинга MFData
-void bind_MFData(py::module_& m) {
-	py::class_<MFData>(m, "MFData")
-		.def(py::init<>())
-		.def_readwrite("rc", &MFData::rc)
-		.def_readonly("chan", &MFData::wp);
-};
+
 
 //для остальных окон количество структур зависит от количества страниц отображения из блока CFG_PAGE
 //каждое окно за исключением 2-х вышеперечисленных может располагаться на любом числе страниц независимо в своем размере и положении
@@ -863,35 +916,7 @@ struct  ScaleData
 		return py::array_t<UINT>({ 2 }, this->reserved);
 	};
 };
-// Функция для биндинга ScaleData
-void bind_ScaleData(py::module_& m) {
-	py::class_<ScaleData>(m, "ScaleData")
-		.def(py::init<>())
-		.def_readwrite("lMin", &ScaleData::lMin)
-		.def_readwrite("lMax", &ScaleData::lMax)
-		.def_readwrite("bMinAuto", &ScaleData::bMinAuto)
-		.def_readwrite("bMaxAuto", &ScaleData::bMaxAuto)
-		.def_readwrite("bIsShown", &ScaleData::bIsShown)
-		.def_readwrite("bIsStPos", &ScaleData::bIsStPos)
-		.def_readwrite("cBackColor", &ScaleData::cBackColor)
-		.def_readwrite("cTextColor", &ScaleData::cTextColor)
-		.def_readwrite("dwMajor", &ScaleData::dwMajor)
-		.def_readwrite("dwMinor", &ScaleData::dwMinor)
-		.def_readwrite("bMajorAuto", &ScaleData::bMajorAuto)
-		.def_readwrite("bMinorAuto", &ScaleData::bMinorAuto)
-		.def("get_label", &ScaleData::get_label)
-		.def_readwrite("unit", &ScaleData::unit)
-		.def_readwrite("lMin_mkV", &ScaleData::lMin_mkV)
-		.def_readwrite("lMax_mkV", &ScaleData::lMax_mkV)
-		.def_readwrite("bShowThresh", &ScaleData::bShowThresh)
-		.def_readwrite("IsLog", &ScaleData::IsLog)
-		.def_readwrite("bNormal", &ScaleData::bNormal)
-		.def_readwrite("bMarker", &ScaleData::bMarker)
-		.def_readwrite("bScroll", &ScaleData::bScroll)
-		.def_readwrite("uScrollSize", &ScaleData::uScrollSize)
-		.def("get_reserved", &ScaleData::get_reserved)
-		.def_readwrite("bShowLabel", &ScaleData::bShowLabel);
-};
+
 struct GraphData
 {
 	COLORREF	cBackColor;		//цвет фона
@@ -907,19 +932,7 @@ struct GraphData
 		return py::array_t<BYTE>({ 24 }, this->reserved);
 	};
 };
-// Функция для биндинга GraphData
-void bind_GraphData(py::module_& m) {
-	py::class_<GraphData>(m, "GraphData")
-		.def(py::init<>())
-		.def_readwrite("cBackColor", &GraphData::cBackColor)
-		.def_readwrite("cIsLines", &GraphData::cIsLines)
-		.def_readwrite("cIsGrid_x", &GraphData::cIsGrid_x)
-		.def_readwrite("cIsGrid_y", &GraphData::cIsGrid_y)
-		.def_readwrite("cColor_x", &GraphData::cColor_x)
-		.def_readwrite("cColor_y", &GraphData::cColor_y)
-		.def_readwrite("cIsGrid_clast", &GraphData::cIsGrid_clast)
-		.def("get_reserved", &GraphData::get_reserved);
-};
+
 
 //////////////////////////////////////////////////
 //конфигурационный блок настройки тревожных сообщений CFG_ALARMS содержит настроечные структуры тревог в количестве заведенных и сохраненных пользователем
@@ -958,25 +971,7 @@ struct AlarmData
 		return py::array_t<UINT>({ 16 }, this->Reserved);
 	};
 };
-// Функция для биндинга AlarmData
-void bind_AlarmData(py::module_& m) {
-	py::class_<AlarmData>(m, "AlarmData")
-		.def(py::init<>())
-		.def("get_AlarmName", &AlarmData::get_AlarmName)
-		.def("get_WaveName", &AlarmData::get_WaveName)
-		.def("get_FltDef", &AlarmData::get_FltDef)
-		.def("get_AndOr", &AlarmData::get_AndOr)
-		.def_readwrite("buf", &AlarmData::buf)
-		.def_readwrite("bMarkerSet", &AlarmData::bMarkerSet)
-		.def_readwrite("bActivated", &AlarmData::bActivated)
-		.def_readwrite("bSound", &AlarmData::bSound)
-		.def_readwrite("bPicture", &AlarmData::bPicture)
-		.def_readwrite("bPicOff", &AlarmData::bPicOff)
-		.def_readwrite("bPrevMarkerON", &AlarmData::bPrevMarkerON)
-		.def_readwrite("NumLocGroup", &AlarmData::NumLocGroup)
-		.def_readwrite("NumLocDist", &AlarmData::NumLocDist)
-		.def("get_reserved", &AlarmData::get_reserved);
-};
+
 
 //////////////////////////////////////////////////
 //конфигурационный блок CFG_GENERAL содержит структуру для хранения дополнительных настроечных параметров системы
@@ -1043,43 +1038,7 @@ struct GeneralSetupMod
 		return vect;
 	};
 };
-// Функция для биндинга GeneralSetupMod
-void bind_GeneralSetupMod(py::module_& m) {
-	py::class_<GeneralSetupMod>(m, "GeneralSetupMod")
-		.def(py::init<>())
-		.def("get_name_par", &GeneralSetupMod::get_name_par)
-		.def_readwrite("PageSize", &GeneralSetupMod::PageSize)
-		.def_readwrite("Din", &GeneralSetupMod::Din)
-		.def_readwrite("SingleNumber", &GeneralSetupMod::SingleNumber)
-		.def("get_ChanSep", &GeneralSetupMod::get_ChanSep)
-		.def("get_LocSep", &GeneralSetupMod::get_LocSep)
-		.def_readwrite("AutoSaveCfg", &GeneralSetupMod::AutoSaveCfg)
-		.def_readwrite("OSCAutoScale", &GeneralSetupMod::OSCAutoScale)
-		.def_readwrite("SaveService", &GeneralSetupMod::SaveService)
-		.def_readwrite("OnLineSpect", &GeneralSetupMod::OnLineSpect)
-		.def_readwrite("UpgradeSpect", &GeneralSetupMod::UpgradeSpect)
-		.def_readwrite("GenColor", &GeneralSetupMod::GenColor)
-		.def_readwrite("ParReadCfg", &GeneralSetupMod::ParReadCfg)
-		.def_readwrite("NoPauseOSC", &GeneralSetupMod::NoPauseOSC)
-		.def_readwrite("RMSOff", &GeneralSetupMod::RMSOff)
-		.def_readwrite("ProtOn", &GeneralSetupMod::ProtOn)
-		.def_readwrite("LineThickness", &GeneralSetupMod::LineThickness)
-		.def_readwrite("AnalizInfoMod", &GeneralSetupMod::AnalizInfoMod)
-		.def_readwrite("WriteServiceInfo", &GeneralSetupMod::WriteServiceInfo)
-		.def_readwrite("InfoTimeout", &GeneralSetupMod::InfoTimeout)
-		.def_readwrite("StartTimeout", &GeneralSetupMod::StartTimeout)
-		.def_readwrite("TempMonitor", &GeneralSetupMod::TempMonitor)
-		.def_readwrite("UseComAlarm", &GeneralSetupMod::UseComAlarm)
-		.def_readwrite("AlarmComPort", &GeneralSetupMod::AlarmComPort)
-		.def_readwrite("SyncStatic", &GeneralSetupMod::SyncStatic)
-		.def_readwrite("ManualCmd", &GeneralSetupMod::ManualCmd)
-		.def_readwrite("ClbSyncOsc", &GeneralSetupMod::ClbSyncOsc)
-		.def_readwrite("GetAllVer", &GeneralSetupMod::GetAllVer)
-		.def("get_reserved", &GeneralSetupMod::get_reserved)
-		.def_readwrite("Unit", &GeneralSetupMod::Unit)
-		.def("get_ProtFileName", &GeneralSetupMod::get_ProtFileName)
-		.def("get_name_reserv", &GeneralSetupMod::get_name_reserv);
-};
+
 
 //////////////////////////////////////////////////
 //конфигурационный CFG_AUTOSETUP содержит структуру для хранения настроечных параметров автоматического порога
@@ -1099,18 +1058,7 @@ struct AutoThresholdSetup
 		return py::array_t<UINT>({ 16 }, this->reserved);
 	};
 };
-// Функция для биндинга AutoThresholdSetup
-void bind_AutoThresholdSetup(py::module_& m) {
-	py::class_<AutoThresholdSetup>(m, "AutoThresholdSetup")
-		.def(py::init<>())
-		.def_readwrite("m_bAuto", &AutoThresholdSetup::m_bAuto)
-		.def_readwrite("m_normal_delta", &AutoThresholdSetup::m_normal_delta)
-		.def_readwrite("m_alarm_delta", &AutoThresholdSetup::m_alarm_delta)
-		.def_readwrite("m_length", &AutoThresholdSetup::m_length)
-		.def_readwrite("m_th_delta", &AutoThresholdSetup::m_th_delta)
-		.def_readwrite("m_th_min_ADC", &AutoThresholdSetup::m_th_min_ADC)
-		.def("get_reserved", &AutoThresholdSetup::get_reserved);
-};
+
 //////////////////////////////////////////////////
 //конфигурационный блок CFG_MEASDATA содержит структуру для хранения настроечных параметров нового измерения
 //размер блока CFG_MEASDATA = sizeof ( MeasData ) см. описание выше
@@ -1127,14 +1075,7 @@ struct HotKeyData
 	WORD	m_wMod;
 	DWORD	m_nCmd;
 };
-// Функция для биндинга HotKeyData
-void bind_HotKeyData(py::module_& m) {
-	py::class_<HotKeyData>(m, "HotKeyData")
-		.def(py::init<>())
-		.def_readwrite("m_wVK", &HotKeyData::m_wVK)
-		.def_readwrite("m_wMod", &HotKeyData::m_wMod)
-		.def_readwrite("m_nCmd", &HotKeyData::m_nCmd);
-};
+
 
 // NumPostWins - число добавленных окон
 // NumPages - число страниц отображения добавленных окон (см. описание CFG_PAGE)
@@ -1155,16 +1096,7 @@ public:
 		return py::array_t<UINT>({ 8 }, this->reserved);
 	};
 };
-// Функция для биндинга CPostWin
-void bind_CPostWin(py::module_& m) {
-	py::class_<CPostWin>(m, "CPostWin")
-		.def(py::init<>())
-		.def("axis_x", &CPostWin::get_axis_x)
-		.def("axis_y", &CPostWin::get_axis_y)
-		.def("axis_z", &CPostWin::get_axis_z)
-		.def("par_chan", &CPostWin::get_par_chan)
-		.def("get_reserved", &CPostWin::get_reserved);
-};
+
 
 struct Graph3DData
 {
@@ -1182,20 +1114,7 @@ struct Graph3DData
 		return py::array_t<BYTE>({ 20 }, this->reserved);
 	};
 };
-// Функция для биндинга Graph3DData
-void bind_Graph3DData(py::module_& m) {
-	py::class_<Graph3DData>(m, "Graph3DData")
-		.def(py::init<>())
-		.def_readwrite("cBackColor", &Graph3DData::cBackColor)
-		.def_readwrite("cIsGrid_x", &Graph3DData::cIsGrid_x)
-		.def_readwrite("cIsGrid_y", &Graph3DData::cIsGrid_y)
-		.def_readwrite("cColor_x", &Graph3DData::cColor_x)
-		.def_readwrite("cColor_y", &Graph3DData::cColor_y)
-		.def_readwrite("cIsGrid_clast", &Graph3DData::cIsGrid_clast)
-		.def_readwrite("cObjectColor", &Graph3DData::cObjectColor)
-		.def_readwrite("cIsGrid_z", &Graph3DData::cIsGrid_z)
-		.def("get_reserved", &Graph3DData::get_reserved);
-};
+
 
 
 // NumHistWins - число добавленных окон
@@ -1221,18 +1140,7 @@ public:
 		return py::array_t<UINT>({ 6 }, this->reserved);
 	};
 };
-// Функция для биндинга CHistWin
-void bind_CHistWin(py::module_& m) {
-	py::class_<CHistWin>(m, "CHistWin")
-		.def(py::init<>())
-		.def("axis_x", &CHistWin::get_axis_x)
-		.def("axis_y", &CHistWin::get_axis_y)
-		.def("step_x", &CHistWin::get_step_x)
-		.def("step_y", &CHistWin::get_step_y)
-		.def("type", &CHistWin::get_type)
-		.def("bSummed", &CHistWin::get_bSummed)
-		.def("get_reserved", &CHistWin::get_reserved);
-};
+
 
 //////////////////////////////////////////////////
 //конфигурационный блок CFG_IPDEVICE содержит информацию о настройках сетевых подключений блоков сбора и обработки данных типа EtnernetBox (число num_ipdevices не ограничено)
@@ -1261,19 +1169,7 @@ struct NetIPInfo	//структура параметров настройки сетевого концентратора
 		return get_vector_from_arr<DWORD>(this->reserved, 10);
 	};
 };
-// Функция для биндинга NetIPInfo
-void bind_NetIPInfo(py::module_& m) {
-	py::class_<NetIPInfo>(m, "NetIPInfo")
-		.def(py::init<>())
-		.def("get_IPAddress", &NetIPInfo::get_IPAddress)
-		.def_readwrite("pID", &NetIPInfo::pID)
-		.def_readwrite("bStatus", &NetIPInfo::bStatus)
-		.def_readwrite("MinLineAddr", &NetIPInfo::MinLineAddr)
-		.def_readwrite("TimeElapsed", &NetIPInfo::TimeElapsed)
-		.def("get_LineNums", &NetIPInfo::get_LineNums)
-		.def("get_LineAddr", &NetIPInfo::get_LineAddr)
-		.def("get_reserved", &NetIPInfo::get_reserved);
-};
+
 
 //////////////////////////////////////////////////
 //конфигурационный блок CFG_AMPCRIT содержит информацию о настройках амплитудного критерия оценки опасности источников АЭ
@@ -1295,21 +1191,7 @@ struct ClassAmpDef
 		return get_vector_from_arr<UINT>(this->reserved, 10);
 	};
 };
-// Функция для биндинга ClassAmpDef
-void bind_ClassAmpDef(py::module_& m) {
-	py::class_<ClassAmpDef>(m, "ClassAmpDef")
-		.def(py::init<>())
-		.def_readwrite("show_amp_crit", &ClassAmpDef::show_amp_crit)
-		.def_readwrite("is_auto", &ClassAmpDef::is_auto)
-		.def_readwrite("is_EN", &ClassAmpDef::is_EN)
-		.def_readwrite("material", &ClassAmpDef::material)
-		.def_readwrite("object", &ClassAmpDef::object)
-		.def_readwrite("A1", &ClassAmpDef::A1)
-		.def_readwrite("A2", &ClassAmpDef::A2)
-		.def_readwrite("N1", &ClassAmpDef::N1)
-		.def_readwrite("N2", &ClassAmpDef::N2)
-		.def("get_reserved", &ClassAmpDef::get_reserved);
-};
+
 
 //////////////////////////////////////////////////
 //конфигурационный блок CFG_FONT содержит информацию о настройках текстовых шрифтов
@@ -1325,7 +1207,6 @@ void bind_ClassAmpDef(py::module_& m) {
 //конфигурационный блок CFG_PAGE содержит информацию о настройках системы многостраничного отображения окон
 //размер блока CFG_PAGE = sizeof ( PageData ) + sizeof ( PageName ) * NumPages;
 //NumPages - число страниц (вкладок) главного окна программы
-#define MAX_PAGENAMELENGTH	256
 struct PageName
 {
 	char page_name[MAX_PAGENAMELENGTH];
@@ -1334,32 +1215,19 @@ struct PageName
 		return get_wstr(this->page_name);
 	}
 };
-// Функция для биндинга PageName
-void bind_PageName(py::module_& m) {
-	py::class_<PageName>(m, "PageName")
-		.def(py::init<>())
-		.def("get_page_name", &PageName::get_page_name);
-};
+
 struct PageData
 {
 	UINT mem_size;		// size of page configuration
 	UINT num_pages;		// number of pages in file
 	UINT cur_page;		// currently selectde page
-	PageName name[];	// unsized array of page names;
+	PageName* name;		// unsized array of page names;
 
 	std::vector<PageName> get_name() {
 		return get_vector_from_arr<PageName>(this->name, 0);
 	}
 };
-// Функция для биндинга PageData
-void bind_PageData(py::module_& m) {
-	py::class_<PageData>(m, "PageData")
-		.def(py::init<>())
-		.def_readwrite("mem_size", &PageData::mem_size)
-		.def_readwrite("num_pages", &PageData::num_pages)
-		.def_readwrite("cur_page", &PageData::cur_page)
-		.def("get_name", &PageData::get_name);
-};
+
 
 //////////////////////////////////////////////////
 //конфигурационный блок CFG_PROFILE содержит информацию о настройках системы мультипрофильных настроек системы (см. CFG_PAGE)
@@ -1384,28 +1252,10 @@ struct ILData	//27.12.99S //03.05.06S
 	std::wstring get_ParName() { return get_wstr(this->ParName); };
 	std::wstring get_FileName() { return get_wstr(this->FileName); };
 };
-// Функция для биндинга ILData
-void bind_ILData(py::module_& m) {
-	py::class_<ILData>(m, "ILData")
-		.def(py::init<>())
-		.def_readwrite("enable_import", &ILData::enable_import)
-		.def_readwrite("ParInput", &ILData::ParInput)
-		.def_readwrite("ParChanNum", &ILData::ParChanNum)
-		.def_readwrite("ParModNum", &ILData::ParModNum)
-		.def("get_ParName", &ILData::get_ParName)
-		.def("get_FileName", &ILData::get_FileName)
-		.def_readwrite("thickness", &ILData::thickness)
-		.def_readwrite("color", &ILData::color)
-		.def_readwrite("NumFraction", &ILData::NumFraction);
-};
+
 
 
 //////////////////////////////////////////////////
-//конфигурационный блок CFG_SERVICE содержит информацию о настройках системы отображения служебных диагностических данных аппаратуры
-//размер блока CFG_SERVICE = NUM_DEVICES * NUM_TYPE * NUM_SERV * sizeof( ServDefMod )
-#define NUM_TYPE	2
-#define NUM_SERV	12
-//NUM_DEVICES - число контроллеров линии (входов DDM-2)
 struct ServDefMod
 {
 	BOOL		show;				//флаг отображения
@@ -1419,19 +1269,238 @@ struct ServDefMod
 		return get_vector_from_arr<UINT>(this->reserved, 5);
 	};
 };
-// Функция для биндинга ServDefMod
-void bind_ServDefMod(py::module_& m) {
-	py::class_<ServDefMod>(m, "ServDefMod")
-		.def(py::init<>())
-		.def_readwrite("show", &ServDefMod::show)
-		.def_readwrite("color", &ServDefMod::color)
-		.def_readwrite("K1", &ServDefMod::K1)
-		.def_readwrite("K2", &ServDefMod::K2)
-		.def_readwrite("show_text", &ServDefMod::show_text)
-		.def("get_reserved", &ServDefMod::get_reserved);
+
+
+
+//enum	DataTypes { ev_data_old = 0, sys_data = 1, noise_data_old = 2, param_data = 3, noise_data = 4, ev_data = 5, marker = 6, text = 7, reserv = 8, service_data = 9, u_param_data = 34, radio_data = 11, u_avg_data = 33 };
+enum	DataTypes {
+	ev_data_old = 0,
+	sys_data = 1,
+	noise_data_old = 2,
+	param_data = 3,
+	noise_data = 4,
+	ev_data = 5,
+	marker = 6,
+	text = 7,
+	reserv = 8,
+	service_data = 9,	//07.12.00S //24.04.01S //22.04.04S //30.01.11S
+	unis_param_data = 10,
+	radio_data = 11,
+	unis_avg_data = 12
+};	//27.05.15S //25.05.16S
+
+//WORD	type; //тип данных согласно DataTypes
+//WORD	size; //размер структуры соответствующей структуры типа type
+//				sizeof(EV_DATA_OUT_OLD) - ev_data_old, устаревший тип посылок с параметрами АЭ-импульсов, не используется
+//				sizeof(CH_INFO_OUT)		- sys_data, посылки командно-системного типа
+//				sizeof(EV_DATA_OUT)		- noise_data_old, устаревший тип усреднительных посылок, не используется
+//				sizeof(EV_PARAM_OUT)	- param_data, посылки с данными параметрических измерений
+//				sizeof(EV_AVG_OUT)		- noise_data, посылки с усредненными данными АЭ-измерений
+//				sizeof(EV_DATA_OUT)		- ev_data, основной тип посылок с параметрами АЭ-импульсов
+//				sizeof(MARKER_OUT)		- marker, посылка с временем временного маркера
+//				sizeof(TEXT_OUT)		- text, посылки с текстом временного маркера
+//				1,						- reserved, резерв
+//				sizeof(SERVICE_OUT)		- service_data, посылка со служебными диагностическими данными
+//				sizeof(UNI_PARAM_OUT)	- u_param_data,	посылки с данными параметрических измерений от прибора ЮНИСКОП
+//				sizeof(RADIO_OUT)		- radio_data, посылка со служебными диагностическими данными измерений в режиме радио
+//				sizeof(UNI_AVG_OUT)		- u_avg_data, посылки с усредненными данными АЭ-измерений от прибора ЮНИСКОП
+
+struct EV_DATA_OUT_OLD	//ev_data_old - не используется
+{
+	AE_TIME		ev_time;	 	// start time of the event
+	WORD		chan_num;		// channel number
+	WORD		max_ampl;		// maximum amplitude
+	UINT		duration;		// event duration in microseconds since start time
+	UINT		rise_time;	    // event rise time in microseconds since start time	
+	UINT        tig;			// tig or count
+	WORD		energy_low;		// energy low word
+	WORD		energy_medium;	// energy medium word
+	WORD		energy_high;	// energy high word
+	WORD		flags;			// validity flags
+	UINT		loc_event;		// flag of localized event: 0-not, 1-sucsess, 5-must be deleted	//04.09.03S
+	LONG        locX;			// location X-coordinate [mm] (NO_LOC) - no location by this event, (SEVERAL_LOC) - used for several locations,
+	LONG        locY;			// location Y-coordinate [mm]
 };
 
 
+struct CH_INFO_OUT	// sys_data
+{
+	AE_TIME		chan_info_time;	// время прихода посылки
+	WORD		chan_num;		// номер канала
+	WORD		type;			// тип посылки
+	WORD		data[8];		// данные
+
+	std::vector<WORD> get_data() {
+		return get_vector_from_arr<WORD>(this->data, 8);
+	};
+};
+
+// Из посылок данного типа можно извлекать значение установленного порога и усиления
+// Здесь есть значащее поле type:
+// для type = 18 и type = 3 в поле data[0] – лежит значение нового установленного порога в ед. АЦП
+// для type = 14 в поле data[0] – лежит значение нового установленного Кус в дБ
+
+
+struct EV_DATA_OUT	// ev_data
+{
+	AE_TIME		ev_time;	 	// время прихода импульса
+	WORD		chan_num;		// номер канала
+	WORD		max_ampl;		// младшее 16-битное слово амплитуды импульса
+	WORD		duration;		// младшее 16-битное слово длительности импульса
+	WORD		expnd;			// слово дополнительных разрядов и частоты оцифровки для 18-битных систем (DDM-2)
+	WORD		rise_time;	    // младшее 16-битное слово времи нарастания переднего фронта
+	WORD		flags_add;		// расширение поля флагов для 18-битных систем (DDM-2)
+	WORD        tig;			// младшее 16-битное слово числа выбросов (осцилляций)
+	WORD		attenuation;    // коэфф. затухания амплитуды (умножен на 10) для вычисления значения локационной амплитуды
+	WORD		energy_low;		// энергия импульса (младшее слово)
+	WORD		energy_medium;	// энергия импульса (среднее слово)
+	WORD		energy_high;	// энергия импульса (старшее слово)
+	WORD		flags;			// флаги
+	WORD		tad;			// РВП, мкс
+	BYTE		loc_event;		// флаг принадлежности локализованному событию: 0-нет, 1-да, 5-удалить
+	BYTE		nsec;			// десятки наносекунд после окончания текщей микросекунды (DDM-2), прибавлять ко времени прихода ev_time
+	LONG        locX;			// локационная координата X [мм], (NO_LOC) - нет локации, (SEVERAL_LOC) - возможно несколько локаций
+	LONG        locY;			// локационная координата Y [мм]
+	LONG        locZ;			// локационная координата Z [мм]
+	LONG		gain;			// текущее значение усиления [dB]
+};
+
+double ConvertEnergy(EV_DATA_OUT* data);
+
+
+
+struct EV_PARAM_OUT	// param_data (для DDM-2 не используется)
+{
+	AE_TIME		param_time;						// время прихода параметрической посылки
+	WORD		chan_num;						// номер канала
+	WORD		num_summ;						// число суммирований значений параметров
+	WORD		par_summ[NUM_PAR_PER_MOD];		// суммарное значение параметров по каналам
+	
+	std::vector<WORD> get_par_summ() {
+		return get_vector_from_arr<WORD>(this->par_summ, NUM_PAR_PER_MOD);
+	};
+};
+
+
+struct EV_AVG_OUT	// noise_data - посылка усреднительного типа, содержит результаты вычисления средних значений за период усреднения (1 сек)
+{
+	AE_TIME		avg_time;				// время прихода
+	WORD		chan_num;				// номер канала
+	WORD		num_summ;				// число суммирований для вычисления среднего уровня шума (=1)
+	DWORD		noise_summ_ampl;		// результат суммирований для вычисления среднего уровня шума
+	WORD		intensity;				// активность АЭ
+	WORD		lost;					// число потеряных АЭ импульсов (из-за ограничений возможностей передачи)
+	double		summ_energy;			// энергия АЭ импульсов
+	DWORD		summ_dur;				// длительность АЭ импульсов
+	DWORD		summ_ampl;				// амплитуда АЭ импульсов
+	DWORD		summ_rise;				// время нарастания переднего фронта
+	DWORD		summ_tig;				// число выбросов (осцилляций)
+	WORD		max_ampl;				// максимальная амплитуда АЭ импульса за период усреднения
+	WORD		expndw;					// слово дополнительных разрядов и частоты оцифровки для 18-битных систем (DDM-2)
+	_int8		cur_gain_dB;			// текущее значение усиления [dB]
+	BYTE		expndb;					// байт дополнительных разрядов и частоты оцифровки для 18-битных систем (DDM-2)
+	WORD		reserved[7];
+
+	std::vector<WORD> get_reserved() {
+		return get_vector_from_arr<WORD>(this->reserved, 7);
+	};
+};
+
+struct MARKER_OUT		// marker
+{
+	AE_TIME		marker_time;		// время прихода маркета
+	DWORD		markerID;			// идентификатор маркера для привязки к тексту маркера
+};
+
+
+struct TEXT_OUT			// text
+{
+	DWORD		markerID;			// идентификатор маркера для привязки ко времени маркера
+	char		marker_text[68];	// текст маркера
+
+	std::wstring get_p_name() {
+		return get_wstr(marker_text);
+	};
+};
+
+
+// доп структуры 
+
+struct UNI_AVG_OUT
+{
+	AE_TIME		time;
+	WORD		chan_num;
+	DWORD		sec;
+	DWORD		impulse_total;
+	DWORD		impulse_sceto;
+	DWORD		impulse_drop;
+	DWORD		impulse_replace;
+	DWORD		ampl_h;
+	DWORD		ampl_l;
+	DWORD		dur_h;
+	DWORD		dur_l;
+	DWORD		rise_h;
+	DWORD		rise_l;
+	DWORD		counts_h;
+	DWORD		counts_l;
+	DWORD		energy_h;
+	DWORD		energy_l;
+	DWORD		thresh;
+	DWORD		sceto;
+	DWORD		maxdur;
+	DWORD		noise_energy_h;
+	DWORD		noise_energy_l;
+	DWORD		noise_ampl;
+	DWORD		noise_amplsum_h;
+	DWORD		noise_amplsum_l;
+	DWORD		noise_num;
+	DWORD		flags;
+};
+
+struct UNI_PARAM_OUT	
+{
+	AE_TIME			time;
+	WORD			chan_num;
+	float			value;
+	unsigned char	prm_chan;
+	unsigned char	prm_type;
+	unsigned char	flags;
+	unsigned char	res;
+};
+
+struct SERVICE_OUT	
+{
+	AE_TIME		s_time;		// service info absolute time
+	WORD		board;		// number of device to inform
+	BYTE		type;		// type of info					
+	BYTE		line;		// name of line (in IP setup)	
+	WORD		data[12];	// info data set
+};
+
+#define NUM_RPARAM	5			
+// radioplan status struct	
+struct RADIO_OUT
+{
+	AE_TIME		r_time;
+	WORD		chan_num;
+	WORD		data[NUM_RPARAM];
+};
+
+#define NUM_FILE_STRUCT	13		//24.04.01S //22.04.04S //30.01.11S //25.05.16S
+const   UINT	DataSizes[NUM_FILE_STRUCT] = {
+				sizeof(EV_DATA_OUT_OLD),
+				sizeof(CH_INFO_OUT),
+				sizeof(EV_DATA_OUT),
+				sizeof(EV_PARAM_OUT),
+				sizeof(EV_AVG_OUT),
+				sizeof(EV_DATA_OUT),
+				sizeof(MARKER_OUT),
+				sizeof(TEXT_OUT),
+				1,						//15.12.11Kir
+				sizeof(SERVICE_OUT), 	//24.04.01S //22.04.04S //30.01.11S
+				sizeof(UNI_PARAM_OUT),	//12.05.17S
+				sizeof(RADIO_OUT),
+				sizeof(UNI_AVG_OUT) };
 
 ////////////////////////////////////////////////////////////////////////
 //Struct member alignment установлено по умолчанию в MSVisualC++, т.е. равным 8 байт

@@ -1,13 +1,61 @@
 import math
 import random
 from collections import Counter
+from typing import Any, List
+
+from numba import njit
 
 import numpy as np
 from numpy.fft import ifft, fft
 
 import Aegis_osc
 
-from Fourier import Fourier
+from Fourier import Fourier, four2
+
+
+@njit
+def get_dB_osc(signal: np.ndarray, k_mkV: np.float64) -> float:
+    """Метод рассчитывает Децибелы для осциллограммы"""
+    maximum = np.max(np.abs(signal))  # Используем np.max и np.abs для работы с ndarray
+
+    res = round(20 * np.log10(maximum * k_mkV))
+    return res
+
+
+@njit
+def fill_dataset_for_normal_rule_fourier(signal: np.ndarray, target_len: int) -> np.ndarray:
+    """
+    метод, добавляющий в конец сигнала значения, построенные на мат.статистике
+    последних 30% значений оциллограммы, чтобы максимально
+    не отличаться по внешнему виду от изначального сигнала
+    """
+    signal = np.asarray(signal, dtype=np.float64)
+    if len(signal) >= target_len:
+        return signal[:target_len]
+
+    current_length = len(signal)
+
+    # Инициализация дополненного массива
+    padded_signal = np.zeros(target_len, dtype=np.float64)
+    padded_signal[:current_length] = signal.copy()
+
+    # Генерируем шум на основе статистики сигнала
+    mean = np.mean(signal[round(len(signal) * 0.7):])
+    std = np.std(signal[round(len(signal) * 0.7):])
+    noise = np.random.normal(loc=mean, scale=std, size=target_len - current_length)
+
+    # Добавляем шум к оставшейся части массива
+    padded_signal[current_length:] = noise
+
+    # Переходим в частотную область, чтобы сгладить переход
+    spectr = four2(padded_signal)
+    spectrum_padded = np.array([i / (len(spectr) / 2 / 500) for i in range(round(len(spectr) / 2))])
+
+    # Применяем обратное преобразование Фурье для получения дополненного сигнала
+    spectr = four2(spectrum_padded, d=1)
+    from_spectr = np.array([i / (len(spectr) / 2 / 500) for i in range(round(len(spectr) / 2))])
+    from_spectr[:current_length] = signal
+    return from_spectr[:target_len]
 
 
 class DataOsc:
@@ -32,15 +80,15 @@ class DataOsc:
         k_mkV_list = []
         dB_list = []
         osc_file = Aegis_osc.File_osc(file_name)
-        num_osc = osc_file.m_sdoHdr.NumOSC
+        num_osc = osc_file.sdoHdr.NumOSC
         list_osc_data = osc_file.getDotsOSC(0, num_osc)
         for i in range(num_osc):
             categories.append(category)
             data_oscs.append(list_osc_data[i])
-            k_mkV_list.append(osc_file.m_oscDefMod[i].K_mkV)
-            dB_list.append(DataOsc.get_dB_osc(list_osc_data[i],
-                                              k_mkV_list[len(k_mkV_list) - 1]))
-        return data_oscs, categories, dB_list
+            k_mkV_list.append(osc_file.oscDefMod[i].K_mkV)
+            dB_list.append(get_dB_osc(np.array(list_osc_data[i]),
+                                      np.float64(k_mkV_list[len(k_mkV_list) - 1])))
+        return data_oscs, categories, dB_list, k_mkV_list
 
     @staticmethod
     def create_datasets_with_osc(list_osc: list
@@ -50,7 +98,7 @@ class DataOsc:
         Возвращает кортеж списаков:
             1. осциллограммы
             2. категории осциллограмм
-            3. знгачения децибелл
+            3. значения децибелл
         """
         data_oscs = []
         categories = []
@@ -58,7 +106,11 @@ class DataOsc:
         k_mkV_list = []
         # цикл для заполнения списков значениями осциллограмм и категорий
         for ind, file_name in enumerate(list_osc):
-            data_oscs, categories, dB_list = DataOsc.get_data_from_osc_file(file_name, csv_categories[ind])
+            data_oscs_loc, categories_loc, dB_list_loc, k_mkV_list_loc = DataOsc.get_data_from_osc_file(file_name, csv_categories[ind])
+            data_oscs.extend(data_oscs_loc)
+            categories.extend(categories_loc)
+            dB_list.extend(dB_list_loc)
+            k_mkV_list.extend(k_mkV_list_loc)
 
         # цикл для подсчёта кол-ва данных, относящихся к одной категории
         counts = Counter(categories)
@@ -83,9 +135,10 @@ class DataOsc:
                 for i in range(length_cat):
                     if count_add > 1 and categories[i] == a[0]:
                         new_osc = DataOsc.augmentation_on_time_cycle(data_oscs[i])
+                        k_mkV_list.append(k_mkV_list[i])
                         data_oscs.append(new_osc)
-                        dB_list.append(DataOsc.get_dB_osc(new_osc, k_mkV_list[i]))
                         categories.append(a[0])
+                        dB_list.append(get_dB_osc(np.array(new_osc), np.float64(k_mkV_list[i])))
                         count_add -= 1
                     elif count_add <= 0:
                         break
@@ -157,39 +210,7 @@ class DataOsc:
         spectrum_padded = fft(padded_signal)
 
         # Применяем обратное преобразование Фурье для получения дополненного сигнала
-        from_spectr = np.real(ifft(spectrum_padded))
-        from_spectr[:current_length] = signal
-        return from_spectr
-
-    @staticmethod
-    def fill_dataset_for_normal_rule_fourier(signal: list, target_len: int) -> list:
-        """
-        метод, добавляющий в конец сигнала значения, построенные на мат.статистике
-        последних 30% значений оциллограммы, чтобы максимально
-        не отличаться по внешнему виду от изначального сигнала
-        """
-        if len(signal) >= target_len:
-            return signal[:target_len]
-
-        current_length = len(signal)
-
-        # Инициализация дополненного массива
-        padded_signal = np.zeros(target_len)
-        padded_signal[:current_length] = signal.copy()
-
-        # Генерируем шум на основе статистики сигнала
-        mean = np.mean(signal[round(len(signal) * 0.7):])
-        std = np.std(signal[round(len(signal) * 0.7):])
-        noise = np.random.normal(loc=mean, scale=std, size=target_len - current_length)
-
-        # Добавляем шум к оставшейся части массива
-        padded_signal[current_length:] = noise
-
-        # Переходим в частотную область, чтобы сгладить переход
-        spectrum_padded = Fourier.four2(padded_signal)
-
-        # Применяем обратное преобразование Фурье для получения дополненного сигнала
-        from_spectr = Fourier.four2(spectrum_padded, d=1)
+        from_spectr = list(np.real(ifft(spectrum_padded)))
         from_spectr[:current_length] = signal
         return from_spectr
 
@@ -213,11 +234,3 @@ class DataOsc:
     def __get_osc_from_spectr(signal: list, current_length: int) -> list:
         """ получаю осциллограмму из спектра """
         return Fourier.four2(signal, d=1)
-
-    @staticmethod
-    def get_dB_osc(signal: list, k_mkV: float) -> float:
-        """Метод рассчитывает Децибелы для осциллограммы"""
-        maximum = abs(max(signal, key=abs))
-
-        res = round(20 * math.log(maximum * k_mkV, 10))
-        return res

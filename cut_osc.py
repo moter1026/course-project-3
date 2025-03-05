@@ -174,7 +174,7 @@ class OscCateg(QMainWindow):
                                  , f"Номера осциллограмм могут быть только больше нуля")
 
         file_from = Aegis_osc.File_osc(path_from)
-        num_osc_from = file_from.m_sdoHdr.NumOSC
+        num_osc_from = file_from.sdoHdr.NumOSC
         osc_datas = []
         if index_end > num_osc_from:
             QMessageBox.critical(self, "Неверный размер"

@@ -12,6 +12,7 @@ class Description:
         self.path = path
         self.type_class = type_class
 
+
 def about(dir: str) -> list:
     all_elems = os.listdir(dir)
     dirs = []
@@ -32,7 +33,6 @@ def about(dir: str) -> list:
     return description
 
 
-
 def make_description(name: str, name_dir: str, type_of_file: str) -> None:
     with open(name+".csv", mode="w+", encoding='utf-16') as textFile:
         file_writer = csv.writer(textFile, delimiter = ",")
@@ -42,4 +42,3 @@ def make_description(name: str, name_dir: str, type_of_file: str) -> None:
             all_descriptions = [s for s in descriptions_about if (s.full_path[s.full_path.rfind('.') + 1:].lower() == type_of_file.lower())]
         for description in all_descriptions:
             file_writer.writerow([description.full_path, description.path, description.type_class])
-

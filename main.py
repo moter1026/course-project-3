@@ -2,12 +2,10 @@ import os
 import sys
 
 import pyqtgraph as pg
-import matplotlib.pyplot as plt
 import numpy as np
 
-import copy_dataset
+from numba import njit
 
-from scipy.fft import fft, ifft
 from collections import Counter
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import (QWidget, QPushButton,
@@ -16,8 +14,10 @@ from PyQt5.QtWidgets import (QWidget, QPushButton,
                              QMainWindow, QFileDialog,
                              QListWidget)
 
-from Fourier import Fourier
-from work_with_osc import DataOsc
+import copy_dataset
+
+from Fourier import Fourier, four2
+from work_with_osc import DataOsc, fill_dataset_for_normal_rule_fourier
 from work_with_csv import my_csv
 
 
@@ -28,6 +28,32 @@ try:
     import Aegis_osc
 except ImportError as e:
     raise "Не удалось импортировать модуль для работы с осциллограммами!"
+
+
+def get_spectrs(signals_list: list, max_length: int) -> list[list, list]:
+    smoothed_signal = []
+    spectr_list = []
+    for signal in signals_list:
+        current_length = len(signal)
+        signal = np.array(signal)
+        # Если сигнал уже нужной длины, возвращаем его
+        if current_length >= max_length:
+            smoothed_signal.append(signal)
+            # Получаем спектр и запоминаем его
+            spectr = four2(signal)
+            spectrum = np.array([i / (len(spectr) / 2 / 500) for i in range(round(len(spectr) / 2))])
+            spectr_list.append(spectrum)
+            continue
+
+        from_spectr = fill_dataset_for_normal_rule_fourier(signal, max_length)
+
+        # Получаем спектр после приведения к нужной длине и сохраняем его
+        spectr = four2(from_spectr)
+        spectrum = np.array([i / (len(spectr) / 2 / 500) for i in range(round(len(spectr) / 2))])
+        spectr_list.append(spectrum)
+
+        smoothed_signal.append(from_spectr)
+    return [smoothed_signal, spectr_list]
 
 
 class Main_menu(QWidget):
@@ -110,55 +136,25 @@ class Main_menu(QWidget):
         self.bttn_open_osc.setEnabled(False)
 
     def __on_clicked_bttn_create_numpy_datasets(self) -> None:
-        # item_count = self.list_files.count()
         all_files = self.csv_file.get_values_from_col(0)
         list_osc = [s for s in all_files if (s[s.rfind('.') + 1:] == "osc" or s[s.rfind('.') + 1:] == "OSC")]
         csv_categories = self.csv_file.get_values_from_col(2)
 
-        spectr_list = []
-        features_list = []
-        # data_oscs, categories = DataOsc.create_datasets_with_osc(list_osc, csv_categories, augment=True)
-        data_oscs, categories, dB_list = DataOsc.create_datasets_with_osc(list_osc, csv_categories, augment=False)
+        data_oscs, categories, dB_list = DataOsc.create_datasets_with_osc(list_osc, csv_categories, augment=True)
 
         max_length = max([len(sublist) for sublist in data_oscs])
-        smoothed_signal = []
-        for signal in data_oscs:
-            current_length = len(signal)
 
-            features = DataOsc.get_math_features(signal)
-            features_list.append([features["mean"], features["std_dev"], features["variance"],
-                                  features["kurtosis"], features["min_val"], features["max_val"],
-                                  features["energy"]])
+        smoothed_signal, spectr_list = get_spectrs(data_oscs, max_length)
 
-            # Если сигнал уже нужной длины, возвращаем его
-            if current_length >= max_length:
-                smoothed_signal.append(signal)
-                # Получаем спектр и запоминаем его
-                spectrum = fft(signal.copy())
-                spectrum_length = len(spectrum)
-                spectr_list.append(spectrum)
-                continue
-
-            from_spectr = DataOsc.fill_dataset_for_normal_rule_fft(signal, max_length)
-
-            # Получаем спектр после приведения к нужной длине и сохраняем его
-            spectrum = fft(from_spectr)
-            spectr_list.append(spectrum)
-
-            smoothed_signal.append(from_spectr)
-
-        # np_data_oscs = np.array(padded_data_oscs)
         np_data_oscs = np.array(smoothed_signal)
         np_categories = np.array(categories)
         np_dB_list = np.array(list(dB_list))
         np_spectr_list = np.array(spectr_list)
-        np_features_list = np.array(features_list)
         name = self.csv_file.csv_path[:self.csv_file.csv_path.rfind(".")]
         np.save(f"{name}_values", np_data_oscs)
         np.save(f"{name}_categories", np_categories)
         np.save(f"{name}_dB", np_dB_list)
         np.save(f"{name}_spectr", np_spectr_list)
-        np.save(f"{name}_features", np_features_list)
 
     def _on_clicked_item_list(self) -> None:
         """Обработчик события клика для элемента списка файлов"""

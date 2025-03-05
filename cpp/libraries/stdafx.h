@@ -4,6 +4,9 @@
 //
 
 #pragma once
+#define WIN32_LEAN_AND_MEAN  // ”бирает редко используемые части Windows.h
+// явно определ€ем версию Windows
+#define WINVER 0x0A00  // Windows 10
 #define _WIN32_WINNT 0x0A00 // дл€ Windows 10
 //#define VC_EXTRALEAN		// Exclude rarely-used stuff from Windows headers
 #define _CRT_SECURE_NO_WARNINGS

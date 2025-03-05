@@ -4,6 +4,7 @@
 #define HARDWARE_CONSTANTS_DEFINED
 
 #include "mytypes.h"
+#include <minwindef.h>
 
 // possible buffer size
 #define BUF0    1024
@@ -153,7 +154,7 @@
 // structs
 
 // channel information event
-typedef struct TAG_EV_CHANSTATUS
+struct TAG_EV_CHANSTATUS
 {
 	WORD		time_low;		// time mkS counter
 	WORD		time_medium;	// time TIME_QUANTUM mkS counter low word

@@ -2,7 +2,7 @@
 
 from cx_Freeze import setup, Executable
 
-executables = [Executable('seeOSC.py',
+executables = [Executable('OSC categories.py',
                base='Win32GUI')]
 
 options = {

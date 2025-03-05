@@ -10,6 +10,15 @@ if(POLICY CMP0148)
     cmake_policy(SET CMP0148 NEW)
 endif()
 
+# Явно указываем целевую архитектуру
+#if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+#    add_compile_definitions(_WIN64)  # Для 64-битной сборки
+#    message(STATUS "Target: 64-bit")
+#else()
+#    add_compile_definitions(_WIN32)  # Для 32-битной сборки
+#    message(STATUS "Target: 32-bit")
+#endif()
+
 # Указываем путь к pybind11 вручную
 list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/../.venv/Lib/site-packages/pybind11/share/cmake/pybind11")
 
@@ -39,6 +48,12 @@ add_library(file_osc_module MODULE ${CPP_SOURCES})
 
 # Линкуем библиотеку с pybind11
 target_link_libraries(file_osc_module PRIVATE pybind11::module)
+
+# Указываем версию Windows API
+#target_compile_definitions(file_osc_module PRIVATE 
+#    WINVER=0x0A00 
+#    _WIN32_WINNT=0x0A00
+#)
 
 # Добавляем статическую линковку для всех стандартных библиотек
 target_link_libraries(file_osc_module PRIVATE

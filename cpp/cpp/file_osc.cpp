@@ -1,67 +1,75 @@
 #include "file_osc.h"
 
-File_osc::File_osc(std::wstring fileName) {
-	std::string logFileName = wstring_to_string(fileName);
-	int ind = logFileName.rfind('.');
-	logFileName.erase(ind);
-	logFileName = logFileName.insert(ind, "_log_.txt");
-	this->m_logger = new Logger(logFileName);
+File_osc::File_osc(std::wstring fileName, std::shared_ptr<Logger>& logger):
+	file(nullptr) {
+	setlocale(LC_ALL, "Russian");
+	//if (!logger) throw std::runtime_error("Wrong logger!");
+	this->m_logger = logger;
 	this->m_logger->logging(LogLevel::_INFO_, "Creating a File_osc class for working with osc files");
-	this->readOsc(fileName);
+	
+	this->fileName = fileName;
+	this->openReadFile();
+	this->readOsc();
 }
 
-bool File_osc::readOsc(std::wstring fileName) {
-	this->m_logger->logging(LogLevel::_INFO_, "open file osc for reading");
-	std::ifstream file(fileName, std::ios::binary);
-	if (!file) {
-		this->m_logger->logging(LogLevel::_CRITICAL_, "Can`t open file for reading");
-		throw std::domain_error(_T("не удалось открыть файл для чтения."));
-	}
-	this->m_fileName = fileName;
+File_osc::File_osc(const File_osc& obgOsc): fileName(obgOsc.fileName)
+	, fileHdr(obgOsc.fileHdr), measData(obgOsc.measData)
+	, sdoHdr(obgOsc.sdoHdr), cfgFileHdr(obgOsc.cfgFileHdr)
+	, oscDefMod(obgOsc.oscDefMod), file(obgOsc.file)
+	, m_logger(obgOsc.m_logger)
+{
+	this->cfgFileInfo = (CfgFileInfo*)malloc(this->cfgFileHdr->info_size);
+	if (!this->cfgFileInfo) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	std::copy(obgOsc.cfgFileInfo, obgOsc.cfgFileInfo + obgOsc.cfgFileHdr->info_size, this->cfgFileInfo);
 
+	this->cf_memory = malloc(this->cfgFileInfo->mem_size);
+	if (!this->cf_memory) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	std::memcpy(this->cf_memory, obgOsc.cf_memory, obgOsc.cfgFileInfo->mem_size);
+}
 
+bool File_osc::readOsc() 
+{
 	this->m_logger->logging(LogLevel::_INFO_, "read FileHdr info");
-	this->m_fileHdr = new FileHdr();
-	if (!this->m_fileHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
-	file.read(reinterpret_cast<char*>(this->m_fileHdr), sizeof(FileHdr));
+	this->fileHdr = new FileHdr;
+	if (!this->fileHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file->read(reinterpret_cast<char*>(this->fileHdr), sizeof(FileHdr));
 
 	this->m_logger->logging(LogLevel::_INFO_, "read MeasData info");
-	this->m_measData = new MeasData();
-	if (!this->m_measData) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
-	file.read(reinterpret_cast<char*>(this->m_measData), sizeof(MeasData));
-
+	this->measData = new MeasData;
+	if (!this->measData) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file->read(reinterpret_cast<char*>(this->measData), sizeof(MeasData));
+	
 	this->m_logger->logging(LogLevel::_INFO_, "read SDOHdr info");
-	this->m_sdoHdr = new SDOHdr();
-	if (!this->m_sdoHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
-	file.read(reinterpret_cast<char*>(this->m_sdoHdr), sizeof(SDOHdr));
+	this->sdoHdr = new SDOHdr;
+	if (!this->sdoHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file->read(reinterpret_cast<char*>(this->sdoHdr), sizeof(SDOHdr));
 
 	this->m_logger->logging(LogLevel::_INFO_, "read CfgFileHdr info");
-	this->m_cfgFileHdr = new CfgFileHdr();
-	if (!this->m_cfgFileHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
-	file.read(reinterpret_cast<char*>(this->m_cfgFileHdr), sizeof(CfgFileHdr));
+	this->cfgFileHdr = new CfgFileHdr;
+	if (!this->cfgFileHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file->read(reinterpret_cast<char*>(this->cfgFileHdr), sizeof(CfgFileHdr));
 
 	this->m_logger->logging(LogLevel::_INFO_, "read CfgFileInfo info");
-	this->m_cfgFileInfo = (CfgFileInfo*)malloc(this->m_cfgFileHdr->info_size);
-	if (!this->m_cfgFileInfo) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
-	file.read(reinterpret_cast<char*>(this->m_cfgFileInfo), this->m_cfgFileHdr->info_size);
+	this->cfgFileInfo = (CfgFileInfo*)malloc(this->cfgFileHdr->info_size);
+	if (!this->cfgFileInfo) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file->read(reinterpret_cast<char*>(this->cfgFileInfo), this->cfgFileHdr->info_size);
 
 	this->m_logger->logging(LogLevel::_INFO_, "read mem_size");
-	this->cf_memory = malloc(m_cfgFileInfo->mem_size);
+	this->cf_memory = malloc(cfgFileInfo->mem_size);
 	if (!this->cf_memory) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
-	file.read(reinterpret_cast<char*>(this->cf_memory), this->m_cfgFileInfo->mem_size);
-
-	this->m_logger->logging(LogLevel::_INFO_, "start read data of osc");
-	for (size_t i = 0; i < this->m_sdoHdr->NumOSC; i++)
+	file->read(reinterpret_cast<char*>(this->cf_memory), this->cfgFileInfo->mem_size);
+	
+	std::string str = "start read data of osc. NumOSC = " + std::to_string(this->sdoHdr->NumOSC);
+	this->m_logger->logging(LogLevel::_INFO_, str);
+	for (size_t i = 0; i < this->sdoHdr->NumOSC; i++)
 	{
 		OSCDefMod values;
-		file.read((char*)(&values), sizeof(OSCDefMod));
-		file.seekg((values.buf_size << 1), std::ios::cur);
-		this->m_oscDefMod.push_back(values);
+		file->read((char*)(&values), sizeof(OSCDefMod));
+		file->seekg((values.buf_size << 1), std::ios::cur);
+		this->oscDefMod.push_back(values);
 	}
 	this->m_logger->logging(LogLevel::_INFO_, "end read data of osc");
 
-
-	close(file);
 	return true;
 }
 
@@ -71,20 +79,20 @@ std::vector<short> getDotOSCInFile(std::ifstream& file, int numOSC, OSCDefMod& o
 	short dot;
 	short dot_out;
 
-	ULONGLONG f_pointer = oscDefMod.seek_wave;
+	size_t f_pointer = oscDefMod.seek_wave;
 	// Получаем длину файла
 	file.seekg(0, std::ios::end);
 	std::streamsize file_length = file.tellg();
 	file.seekg(0, std::ios::beg);
 
-	if (file_length > 0xFFFFFFFF) f_pointer += ULONGLONG(oscDefMod.seek_wave_high) << 32;
+	if (file_length > 0xFFFFFFFF) f_pointer += size_t(oscDefMod.seek_wave_high) << 32;
 
 	file.seekg(f_pointer, std::ios::beg);
 	file.seekg(sizeof(OSCDefMod), std::ios::cur);
 
 	if (oscDefMod.bPowerMethod & 0x100) {
-		long value;
-		long base;
+		size_t value;
+		size_t base;
 		for (size_t j = 0; j < oscDefMod.buf_size; j++)
 		{
 			file.read((char*)&dot, sizeof(dot));
@@ -146,23 +154,23 @@ std::vector<short> File_osc::getDotOSC(int numOSC)
 	this->openReadFile();
 
 	this->m_logger->logging(LogLevel::_INFO_, "start read dots of osc");
-	std::vector<short> dots = getDotOSCInFile(*this->m_file, numOSC, this->m_oscDefMod[numOSC]);
+	std::vector<short> dots = getDotOSCInFile(*this->file, numOSC, this->oscDefMod[numOSC]);
 	this->m_logger->logging(LogLevel::_INFO_, "end read dots of osc");
 
-	close(*this->m_file);
+	this->file->close();
 	return dots;
 }
 
 // NOC - no open, no close
 std::vector<short> File_osc::getDotOSC_NOC(int numOSC)
 {
-	if (!this->m_file) 
+	if (!this->file->is_open()) 
 	{
 		this->m_logger->logging(LogLevel::_CRITICAL_, "file for read closed!");
 		throw std::runtime_error("file for read closed!");
 	}
 
-	std::vector<short> dots = getDotOSCInFile(*this->m_file, numOSC, this->m_oscDefMod[numOSC]);
+	std::vector<short> dots = getDotOSCInFile(*this->file, numOSC, this->oscDefMod[numOSC]);
 
 	return dots;
 }
@@ -175,12 +183,22 @@ std::vector<std::vector<short>> File_osc::getDotsOSC(int startOSC, int endOSC) {
 	this->m_logger->logging(LogLevel::_INFO_, "start read dots of osc");
 	for (size_t i = startOSC; i < endOSC; i++)
 	{
-		dots.push_back(getDotOSCInFile(*this->m_file, i, this->m_oscDefMod[i]));
+		dots.push_back(getDotOSCInFile(*this->file, i, this->oscDefMod[i]));
 	}
 	this->m_logger->logging(LogLevel::_INFO_, "end read dots of osc");
 
-	close(*this->m_file);
+	this->file->close();
 	return dots;
+}
+
+std::vector<double> File_osc::get_K_mkV(size_t start, size_t end)
+{
+	std::vector<double> K_mkV;
+	for (size_t i = start; i < end; i++)
+	{
+		K_mkV.push_back(this->oscDefMod[i].K_mkV);
+	}
+	return K_mkV;
 }
 
 bool File_osc::saveOSC(std::wstring fileName
@@ -194,34 +212,34 @@ bool File_osc::saveOSC(std::wstring fileName
 	}
 
 	this->m_logger->logging(LogLevel::_INFO_, "write FileHdr info");
-	if (!this->m_fileHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
-	file.write(reinterpret_cast<char*>(this->m_fileHdr), sizeof(FileHdr));
+	if (!this->fileHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file.write(reinterpret_cast<char*>(this->fileHdr), sizeof(FileHdr));
 
 	this->m_logger->logging(LogLevel::_INFO_, "write MeasData info");
-	if (!this->m_measData) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
-	file.write(reinterpret_cast<char*>(this->m_measData), sizeof(MeasData));
+	if (!this->measData) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file.write(reinterpret_cast<char*>(this->measData), sizeof(MeasData));
 
 	this->m_logger->logging(LogLevel::_INFO_, "write SDOHdr info");
-	if (!this->m_sdoHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
-	this->m_sdoHdr->NumOSC = arr_osc.size();
-	file.write(reinterpret_cast<char*>(this->m_sdoHdr), sizeof(SDOHdr));
+	if (!this->sdoHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	this->sdoHdr->NumOSC = arr_osc.size();
+	file.write(reinterpret_cast<char*>(this->sdoHdr), sizeof(SDOHdr));
 
 	this->m_logger->logging(LogLevel::_INFO_, "write CfgFileHdr info");
-	if (!this->m_cfgFileHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
-	file.write(reinterpret_cast<char*>(this->m_cfgFileHdr), sizeof(CfgFileHdr));
+	if (!this->cfgFileHdr) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file.write(reinterpret_cast<char*>(this->cfgFileHdr), sizeof(CfgFileHdr));
 
 	this->m_logger->logging(LogLevel::_INFO_, "write CfgFileInfo info");
-	if (!this->m_cfgFileInfo) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
-	file.write(reinterpret_cast<char*>(this->m_cfgFileInfo), this->m_cfgFileHdr->info_size);
+	if (!this->cfgFileInfo) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
+	file.write(reinterpret_cast<char*>(this->cfgFileInfo), this->cfgFileHdr->info_size);
 
 	this->m_logger->logging(LogLevel::_INFO_, "write mem_size");
 	if (!this->cf_memory) this->m_logger->logging(LogLevel::_ERROR_, "Memory allocation error");
-	file.write(reinterpret_cast<char*>(this->cf_memory), this->m_cfgFileInfo->mem_size);
+	file.write(reinterpret_cast<char*>(this->cf_memory), this->cfgFileInfo->mem_size);
 
 	this->m_logger->logging(LogLevel::_INFO_, "start write data of osc");
 	for (size_t i = 0; i < arr_osc.size(); i++)
 	{
-		OSCDefMod* now_oscDefMod = &(this->m_oscDefMod[indexes[i]]);
+		OSCDefMod* now_oscDefMod = &(this->oscDefMod[indexes[i]]);
 		now_oscDefMod->seek_wave = file.tellp();
 		file.write(reinterpret_cast<char*>(now_oscDefMod), sizeof(OSCDefMod));
 		setDotOSCInFile(file, now_oscDefMod->bPowerMethod, arr_osc[i]);
@@ -235,19 +253,48 @@ bool File_osc::saveOSC(std::wstring fileName
 
 void File_osc::openReadFile()
 {
-	this->m_logger->logging(LogLevel::_INFO_, "open file osc for reading");
-	std::ifstream* file = new std::ifstream(this->m_fileName, std::ios::binary);
-	if (!file) {
-		this->m_logger->logging(LogLevel::_CRITICAL_, "Can`t open file for reading");
-		throw std::domain_error(_T("не удалось открыть файл для чтения."));
+	try {
+		// Создаем новый поток, если нужно
+		if (!this->file) {
+			this->file = std::make_shared<std::ifstream>();
+		}
+		else if (this->file.get() && this->file->is_open()) {
+			this->m_logger->logging(LogLevel::_INFO_, "File is open.");
+			return;
+		}
+		// Открываем файл с проверкой режимов
+		this->file->open(this->fileName, std::ios::binary | std::ios::ate); // Открываем в конце для проверки размера
+
+		// Проверка успешности открытия
+		if (!this->file->is_open()) {
+			std::error_code ec(errno, std::system_category());
+			this->m_logger->logging(LogLevel::_CRITICAL_ ,
+				L"Failed to open file: " + this->fileName + L" | Error: " + string_to_wstring(ec.message()));
+			throw std::runtime_error(
+				"File open error " + wstring_to_string(this->fileName));
+		}
+
+		// Дополнительные проверки
+		const auto file_size = this->file->tellg();
+		if (file_size == 0) {
+			this->m_logger->logging(LogLevel::_WARNING_, "Opened empty file: " + wstring_to_string(this->fileName));
+		}
+
+		// Возвращаем указатель в начало
+		this->file->seekg(0, std::ios::beg);
+
 	}
-	this->m_file = file;
+	catch (const std::ios_base::failure& e) {
+		this->m_logger->logging(LogLevel::_CRITICAL_,
+			"I/O exception: " + std::string(e.what()) + " | Code: " + std::to_string(e.code().value()));
+		throw;
+	}
 }
 
 void File_osc::cls()
 {
 	this->m_logger->logging(LogLevel::_INFO_, "close file osc");
-	if (this->m_file) this->m_file->close();
+	if (this->file) this->file->close();
 }
 
 void File_osc::close(std::ifstream& file)
@@ -263,66 +310,12 @@ void File_osc::close(std::ofstream& file)
 
 File_osc::~File_osc() {
 	this->m_logger->logging(LogLevel::_INFO_, "clear File_osc data");
-	if (m_fileHdr) delete m_fileHdr;
-	if (m_measData) delete m_measData;
-	if (m_sdoHdr) delete m_sdoHdr;
-	if (m_cfgFileHdr) delete m_cfgFileHdr;
-	if (m_cfgFileInfo) delete m_cfgFileInfo;
-	if (cf_memory) free(cf_memory);
-	if (m_logger) delete m_logger;
-}
-
-
-PYBIND11_MODULE(Aegis_osc, m) {
-	py::class_<File_osc>(m, "File_osc")
-		.def(py::init<std::wstring>())
-		.def("readOsc", &File_osc::readOsc, "Метод читает из файла fileName данные об осциллограммах",
-			py::arg("fileName"))
-		.def("getDotOSC", &File_osc::getDotOSC, "Метод возвращает точки осциллограммы", py::arg("numOSC"))
-		.def("getDotOSC_NOC", &File_osc::getDotOSC_NOC, "Метод возвращает точки осциллограммы,\
-			 используя уже открытый до этого файл", py::arg("numOSC"))
-		.def("getDotsOSC", &File_osc::getDotsOSC, "Метод возвращает список точек осциллограмм", py::arg("startOSC"), py::arg("endOSC"))
-		.def("saveOSC", &File_osc::saveOSC, "Метод сохраняет новый файл осциллограммы", py::arg("fileName"), py::arg("arr_osc"), py::arg("indexes"))
-		.def("openReadFile", &File_osc::openReadFile, "Открывает для чтения файл, который был указан при создании объекта,\
-			и не закрывает пока не будет вызван close()")
-		.def("cls", &File_osc::cls, "закрывает файл, который был указан при создании объекта")
-		.def_readwrite("m_fileHdr", &File_osc::m_fileHdr)
-		.def_readwrite("m_measData", &File_osc::m_measData)
-		.def_readwrite("m_sdoHdr", &File_osc::m_sdoHdr)
-		.def_readwrite("m_cfgFileHdr", &File_osc::m_cfgFileHdr)
-		.def_readwrite("m_cfgFileInfo", &File_osc::m_cfgFileInfo)
-		.def_readwrite("cf_memory", &File_osc::cf_memory)
-		.def_readwrite("m_oscDefMod", &File_osc::m_oscDefMod);
-
-	bind_FileHdr(m);
-	bind_FilterDef(m);
-	bind_PreFilterData(m);
-	bind_MeasData(m);
-	bind_SDOHdr(m);
-	bind_AE_TIME(m);
-	bind_OSCDefMod(m);
-	bind_CfgFileHdr(m);
-	bind_CfgFileInfo(m);
-	bind_ColorMod(m);
-	bind_ChanDefMod(m);
-	bind_TimeDefMod(m);
-	bind_CalibrDefMod(m);
-	bind_ParDefMod(m);
-	bind_ald_drv_addr_t(m);
-	bind_FullDefMod(m);
-	bind_MFData(m);
-	bind_ScaleData(m);
-	bind_GraphData(m);
-	bind_AlarmData(m);
-	bind_GeneralSetupMod(m);
-	bind_AutoThresholdSetup(m);
-	bind_HotKeyData(m);
-	bind_CPostWin(m);
-	bind_Graph3DData(m);
-	bind_CHistWin(m);
-	bind_NetIPInfo(m);
-	bind_ClassAmpDef(m);
-	bind_PageData(m);
-	bind_ILData(m);
-	bind_ServDefMod(m);
+	if (this->fileHdr) free(this->fileHdr);
+	if (this->measData) free(this->measData);
+	if (this->sdoHdr) free(this->sdoHdr);
+	if (this->cfgFileHdr) free(this->cfgFileHdr);
+	if (this->cfgFileInfo) free(this->cfgFileInfo);
+	if (this->cf_memory) free(this->cf_memory);
+	if (this->file->is_open() &&
+		this->file.use_count() == 1) this->cls();
 }
