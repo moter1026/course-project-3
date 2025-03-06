@@ -1,31 +1,21 @@
 import inspect
-import multiprocessing
 import os
 import sys
-import logging
 import pyqtgraph as pg
 
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import (QWidget, QPushButton,
                              QVBoxLayout, QHBoxLayout,
-                             QMainWindow, QFileDialog,
-                             QMessageBox)
+                             QMainWindow, QMessageBox)
 
 import Aegis_osc
 
 from seeOSC import SeeOSC
 from test_model import TestModel
 
-# Настройка логирования
-# logging.basicConfig(
-#     level=logging.DEBUG,
-#     format='%(asctime)s - %(levelname)s - %(message)s',
-#     handlers=[
-#         logging.FileHandler("application.log", encoding='utf-8'),
-#         logging.StreamHandler(sys.stdout)
-#     ]
-# )
+
 LOG_LEVEL = Aegis_osc.LogLevel
+
 
 class OscCateg(QMainWindow):
     def __init__(self):
@@ -46,7 +36,6 @@ class OscCateg(QMainWindow):
                         os.path.basename(__file__),
                         inspect.currentframe().f_lineno, 
                         inspect.currentframe().f_code.co_name)
-        # logging.info("Приложение OscCateg запущено.")
 
     def __on_graphs_shown(self) -> None:
         self.path_file = self.seeOSC.menu.name_osc
@@ -188,10 +177,16 @@ class OscCateg(QMainWindow):
         list_indexes = [el for el in self.pedict_res[category]]
         self.seeOSC.menu.osc_file.cls()
         # Переделать метод saveOSC.Передавать только list_indexes
-        print(f"before save file")
+        self.logger.logg(LOG_LEVEL._INFO_, "Сохранение новых файлов .osc и .ald",
+                        os.path.basename(__file__),
+                        inspect.currentframe().f_lineno, 
+                        inspect.currentframe().f_code.co_name)
         self.seeOSC.menu.osc_file.saveOSC(file_name, list_osc, list_indexes)
         self.seeOSC.menu.ald_file.saveNewAld(file_name)
-        print(f"after save file")
+        self.logger.logg(LOG_LEVEL._INFO_, "Файлы .osc и .ald сохранены.",
+                        os.path.basename(__file__),
+                        inspect.currentframe().f_lineno, 
+                        inspect.currentframe().f_code.co_name)
 
 
 if __name__ == "__main__":

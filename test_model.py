@@ -1,3 +1,4 @@
+import inspect
 import math
 import logging
 import sys
@@ -10,8 +11,6 @@ import numpy as np
 from numba import njit
 from multiprocessing import Pool, cpu_count
 
-sys.stdout = open('output.log', 'w')
-sys.stderr = open('error.log', 'w')
 from tensorflow.keras.models import load_model
 
 import Aegis_osc
@@ -19,13 +18,10 @@ import Aegis_osc
 from Fourier import four2
 from work_with_osc import get_dB_osc
 
+
 # Отключение вывода лишних сообщений от TensorFlow
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
-
-# @njit
-# def process_kmkV(start, end, oscDefMod):
-#     return np.array([oscDefMod[i].K_mkV for i in range(start, end)])
+LOG_LEVEL = Aegis_osc.LogLevel
 
 
 def process_chunk(args):
@@ -38,14 +34,14 @@ def process_chunk(args):
     return predictions
 
 
-def get_data_for_predict(data_list: np.ndarray, K_mkV_list: np.ndarray, max_length: np.int32) -> list[Any]:
+@njit
+def get_data_for_predict(data_list: np.ndarray, K_mkV_list: np.ndarray, max_length: np.int32) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Метод возвращает данные, необходимые для предсказани категорий осциллограмм.
     Возвращает:
         1) np.ndarray np_data_oscs - список осциллограмм
         2) np.ndarray np_spectr_list - список спектров
         3) np.ndarray np_dB_list - список децибел для осциллограмм
-
     """
     smoothed_signal = np.zeros((len(data_list), max_length), dtype=np.float64)  # Массив с нужной длиной
     spectr_list = np.zeros((len(data_list), 4096), dtype=np.float64)  # Массив с нужной длиной
@@ -58,7 +54,7 @@ def get_data_for_predict(data_list: np.ndarray, K_mkV_list: np.ndarray, max_leng
         if current_length >= max_length:
             smoothed_signal[i] = signal
             # Получаем спектр и запоминаем его
-            spectr = four2(np.array(signal, dtype=np.float64))
+            spectr = four2(signal)
             spectrum = np.array([i / (len(spectr) / 2 / 500) for i in range(round(len(spectr) / 2))])
             # spectr_list[i] = spectrum[:max_length]
             spectr_list[i] = spectrum
@@ -78,7 +74,7 @@ def get_data_for_predict(data_list: np.ndarray, K_mkV_list: np.ndarray, max_leng
         padded_signal[current_length:] = noise
 
         # Получаем спектр после приведения к нужной длине и сохраняем его
-        spectr = four2(np.array(padded_signal, dtype=np.float64))
+        spectr = four2(padded_signal)
         spectrum = np.array([i / (len(spectr) / 2 / 500) for i in range(round(len(spectr) / 2))])
         # spectr_list[i] = spectrum[:max_length]
         spectr_list[i] = spectrum
@@ -90,7 +86,7 @@ def get_data_for_predict(data_list: np.ndarray, K_mkV_list: np.ndarray, max_leng
     np_data_oscs = smoothed_signal
     np_data_oscs = np_data_oscs.reshape((len(np_data_oscs), len(np_data_oscs[i]), 1))
 
-    return [np_data_oscs, spectr_list, dB_list]
+    return np_data_oscs, spectr_list, dB_list
 
 
 class TestModel:
@@ -135,26 +131,52 @@ class TestModel:
         """Разбивает осциллограммы на категории """
         self.__load_osc(file_osc, logger)
         predictions = []
+        logger.logg(LOG_LEVEL._INFO_, "start predict",
+                        os.path.basename(__file__),
+                        inspect.currentframe().f_lineno, 
+                        inspect.currentframe().f_code.co_name)
 
         if self.num_osc > 1000:
+            logger.logg(LOG_LEVEL._INFO_, "predict with multiprocessing",
+                        os.path.basename(__file__),
+                        inspect.currentframe().f_lineno, 
+                        inspect.currentframe().f_code.co_name)
             chunk_size = 1000
             num_chunks = math.ceil(self.num_osc / chunk_size)
             chunk_args = []
+            logger.logg(LOG_LEVEL._INFO_, "start get chunk_args",
+                        os.path.basename(__file__),
+                        inspect.currentframe().f_lineno, 
+                        inspect.currentframe().f_code.co_name)
             for i in range(num_chunks):
                 start, end = (i * chunk_size, min((i + 1) * chunk_size, self.num_osc))  # Передаём диапазон
                 self.data_list = np.array(self.file_osc.getDotsOSC(start, end))
                 self.K_mkV_list = self.file_osc.get_K_mkV(start, end)
                 chunk_args.append((self.data_list, self.K_mkV_list, self.max_length, get_data_for_predict, self.model))
-
+            logger.logg(LOG_LEVEL._INFO_, "end get chunk_args",
+                        os.path.basename(__file__),
+                        inspect.currentframe().f_lineno, 
+                        inspect.currentframe().f_code.co_name)
             # Параллельная обработка с использованием пула процессов
+            logger.logg(LOG_LEVEL._INFO_, "start multiprocessing",
+                        os.path.basename(__file__),
+                        inspect.currentframe().f_lineno, 
+                        inspect.currentframe().f_code.co_name)
             with Pool(processes=cpu_count()) as pool:
                 results = pool.map(process_chunk, chunk_args)
-
+            logger.logg(LOG_LEVEL._INFO_, "end multiprocessing",
+                        os.path.basename(__file__),
+                        inspect.currentframe().f_lineno, 
+                        inspect.currentframe().f_code.co_name)
             # Объединяем результаты всех процессов
             for result in results:
                 predictions.extend(result)
 
         else:
+            logger.logg(LOG_LEVEL._INFO_, "predict without multiprocessing",
+                        os.path.basename(__file__),
+                        inspect.currentframe().f_lineno, 
+                        inspect.currentframe().f_code.co_name)
             self.data_list = np.array(self.file_osc.getDotsOSC(0, self.file_osc.sdoHdr.NumOSC))
             self.K_mkV_list = np.array([self.file_osc.oscDefMod[i].K_mkV for i in range(0, self.file_osc.sdoHdr.NumOSC)])
             datas = get_data_for_predict(self.data_list, self.K_mkV_list, self.max_length)

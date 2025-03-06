@@ -10,7 +10,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (QWidget, QPushButton,
                              QLabel, QVBoxLayout,
-                             QHBoxLayout, QLineEdit,
+                             QHBoxLayout, QMessageBox,
                              QMainWindow, QFileDialog)
 
 import Aegis_osc
@@ -87,8 +87,6 @@ class MainMenu(QWidget):
 
             self.file_open.setText(f"Открыт файл .ald: {self.name_ald}\nОткрыт файл .osc: {self.name_osc}")
             self.num_osc = self.osc_file.sdoHdr.NumOSC
-            # self.ald_file.cls()
-            
 
             # Предварительная инициализация массивов
             self.start_data_osc = 0
@@ -99,10 +97,8 @@ class MainMenu(QWidget):
                         os.path.basename(__file__),
                         inspect.currentframe().f_lineno, 
                         inspect.currentframe().f_code.co_name)
-            osc_data = np.array(self.osc_file.getDotsOSC(0, self.end_data_osc))
-            self.osc_datas = np.copy(osc_data)  # Сразу создаём массив
-            
-
+            self.osc_datas = np.array(self.osc_file.getDotsOSC(0, self.end_data_osc))  
+                      
             # Заполняем массивы за один проход, без использования np.append
             self.logger.logg(LOG_LEVEL._INFO_, f"Старт получения K_mkV",
                         os.path.basename(__file__),
@@ -261,8 +257,6 @@ class MainMenu(QWidget):
         self.start_data_osc = self.start_data_osc - 500 if (self.start_data_osc - 500) > 0 else 0
         self.osc_datas = np.array(self.osc_file.getDotsOSC(self.start_data_osc, self.end_data_osc))
 
-        # self.K_mkV = np.array(
-        #     [self.osc_file.oscDefMod[i].K_mkV for i in range(self.start_data_osc, self.end_data_osc)])
         self.K_mkV = np.array(self.osc_file.get_K_mkV(self.start_data_osc, self.end_data_osc))
         self.dB_data = np.array(([get_dB_osc(self.osc_datas[i], self.K_mkV[i])
                                   for i in range(0, self.end_data_osc - self.start_data_osc)]))
@@ -274,8 +268,6 @@ class MainMenu(QWidget):
         self.end_data_osc = self.end_data_osc + 500 if (self.num_osc - self.osc_now) > 500 else self.num_osc
         self.osc_datas = np.array(self.osc_file.getDotsOSC(self.start_data_osc, self.end_data_osc))
 
-        # self.K_mkV = np.array(
-        #     [self.osc_file.oscDefMod[i].K_mkV for i in range(self.start_data_osc, self.end_data_osc)])
         self.K_mkV = np.array(self.osc_file.get_K_mkV(self.start_data_osc, self.end_data_osc))
         self.dB_data = np.array(([get_dB_osc(self.osc_datas[i], self.K_mkV[i])
                                   for i in range(0, self.end_data_osc - self.start_data_osc)]))
@@ -380,4 +372,4 @@ if __name__ == "__main__":
         ex = SeeOSC()
         sys.exit(app.exec())
     except Exception as e:
-        print(e)
+        QMessageBox.critical(None, "Критическая ошибка", f"Критическая ошибка: {e}")
