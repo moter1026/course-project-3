@@ -38,7 +38,17 @@ PYBIND11_MODULE(Aegis_osc, m) {
 		.def_readwrite("fileName", &File_ald::fileName)
 		.def_readwrite("fileHdr", &File_ald::fileHdr)
 		.def_readwrite("measData", &File_ald::measData)
-		.def_readwrite("cfg", &File_ald::cfg);
+		.def_readwrite("cfg", &File_ald::cfg)
+		.def_readwrite("evData", &File_ald::evData)
+		.def_readwrite("noiseData", &File_ald::noiseData)
+		.def_readwrite("unisAvData", &File_ald::unisAvData)
+		.def_readwrite("paramData", &File_ald::paramData)
+		.def_readwrite("unisParamData", &File_ald::unisParamData)
+		.def_readwrite("sysData", &File_ald::sysData)
+		.def_readwrite("markerData", &File_ald::markerData)
+		.def_readwrite("textData", &File_ald::textData)
+		.def_readwrite("servData", &File_ald::servData)
+		.def_readwrite("radioData", &File_ald::radioData);
 
 	py::class_<Cfg_in_ald>(m, "Cfg_in_ald")
 		.def(py::init<std::shared_ptr<std::ifstream>, std::shared_ptr<Logger>>())

@@ -253,9 +253,13 @@ BOOL File_ald::readAld()
 		
 		cur_file_pos = long(this->file->tellg());	//03.06.04S
 		//	reading file data to the buffer
+		int count = 0, count1 = 0;
 		while (true) {
+			this->m_logger->logging(LogLevel::_INFO_, "stay_count: " + std::to_string(stay_count));
 			words_read = ReadDataIntoBuffer(readBuffer, stay_count);
+			this->m_logger->logging(LogLevel::_INFO_, "words_read: " + std::to_string(words_read));
 			if (!words_read) break;
+			count++;
 
 			pointer = 0;
 			if (words_read >= READ_BUF_SIZE) {
@@ -265,6 +269,7 @@ BOOL File_ald::readAld()
 				otschet = 0;
 			}
 			while (words_read + stay_count > otschet + pointer) {	//06.04.05S
+				count1++;
 				type = LOWORD(readBuffer[pointer]);
 				def_size = HIWORD(readBuffer[pointer]);
 				Usize = def_size / sizeof(UINT);
@@ -355,6 +360,7 @@ BOOL File_ald::readAld()
 			}
 			cur_file_pos = long(this->file->tellg());	//03.06.04S
 		}
+		this->m_logger->logging(LogLevel::_INFO_, "count: " + std::to_string(count) + "; count1: " + std::to_string(count1));
 		return true;
     }
     catch (const std::exception& err)
@@ -370,7 +376,7 @@ void File_ald::cls()
     if (this->file->is_open()) this->file->close();
 }
 
-bool File_ald::ReadDataIntoBuffer(size_t* readBuffer, const size_t stayСount)
+size_t File_ald::ReadDataIntoBuffer(size_t* readBuffer, const size_t stayСount)
 {
 	// Проверка валидности
 	if (!this->file->is_open() || !readBuffer) {
@@ -390,5 +396,5 @@ bool File_ald::ReadDataIntoBuffer(size_t* readBuffer, const size_t stayСount)
 	// Вычисляем количество прочитанных элементов типа UINT
 	// и возвращаем это значение
 	size_t bytesRead = this->file->gcount();
-	return bytesRead / sizeof(UINT);;
+	return bytesRead / sizeof(UINT);
 }
