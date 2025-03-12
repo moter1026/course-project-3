@@ -6,7 +6,7 @@ File_ald::File_ald(std::wstring fileName, const std::shared_ptr<Logger>& logger)
 {
 	setlocale(LC_ALL, "Russian");
 	logger->logging(LogLevel::_INFO_, "In constructor!");
-	// <= 5, т.к. ".ald" в названии файла точно должно быть
+	// <= 5, пїЅ.пїЅ. ".ald" пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	/*if (fileName.length() <= 5 || !logger.get()) {
 		this->m_logger->logging(LogLevel::_INFO_, "Wrong logger or file name!");
 		throw std::runtime_error("Wrong logger or file name!");
@@ -39,7 +39,7 @@ File_ald::File_ald(const File_ald& objAld): fileName(objAld.fileName)
 void File_ald::openReadFile()
 {
 	try {
-		// Создаем новый поток, если нужно
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		if (!this->file) {
 			this->file = std::make_shared<std::ifstream>();
 		}
@@ -47,10 +47,10 @@ void File_ald::openReadFile()
 			this->m_logger->logging(LogLevel::_INFO_, "File is open.");
 			return;
 		}
-		// Открываем файл с проверкой режимов
-		this->file->open(this->fileName, std::ios::binary | std::ios::ate); // Открываем в конце для проверки размера
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		this->file->open(this->fileName, std::ios::binary | std::ios::ate); // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
-		// Проверка успешности открытия
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		if (!this->file->is_open()) {
 			std::error_code ec(errno, std::system_category());
 			this->m_logger->logging(LogLevel::_CRITICAL_,
@@ -59,13 +59,13 @@ void File_ald::openReadFile()
 				"File open error " + wstring_to_string(this->fileName));
 		}
 
-		// Дополнительные проверки
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		const auto file_size = this->file->tellg();
 		if (file_size == 0) {
 			this->m_logger->logging(LogLevel::_WARNING_, "Opened empty file: " + wstring_to_string(this->fileName));
 		}
 
-		// Возвращаем указатель в начало
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		this->file->seekg(0, std::ios::beg);
 
 	}
@@ -83,46 +83,46 @@ void File_ald::saveNewAld(std::wstring newNameOSC) {
 
 		this->openReadFile();
 
-		// Проверка длины имени
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		if (newNameOSC.size() >= 255 || newNameOSC.size() <= 5) {
 			throw std::runtime_error("Wrong size of string \"newNameOSC\"");
 		}
 
-		// Сохранение старого имени
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		char oldOSCName[255];
 		strncpy(oldOSCName, this->measData->sdo_name, 254);
 		oldOSCName[254] = '\0';
 
-		// Конвертация wstring в string
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ wstring пїЅ string
 		std::string new_name = wstring_to_ansi(newNameOSC);
 		if (new_name.size() >= 255) {
-			throw std::runtime_error("Имя файла слишком длинное");
+			throw std::runtime_error("пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ");
 		}
 
 		new_name.erase(new_name.begin(), new_name.begin() + new_name.rfind('/') + 1);
 		strncpy(this->measData->sdo_name, new_name.c_str(), 254);
 		this->measData->sdo_name[254] = '\0';
 
-		// Формирование имени .ald файла
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ .ald пїЅпїЅпїЅпїЅпїЅ
 		std::wstring newFileNameAld = newNameOSC;
 		size_t dot_pos = newFileNameAld.rfind('.');
 		if (dot_pos == std::string::npos) {
-			this->m_logger->logging(LogLevel::_ERROR_, "Некорректное имя файла (нет расширения)");
+			this->m_logger->logging(LogLevel::_ERROR_, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)");
 			return;
 		}
 		newFileNameAld.replace(dot_pos + 1, 3, L"ald");
 
-		// Создание файла
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		this->m_logger->logging(LogLevel::_INFO_, "start create new file");
 		std::ofstream newAld(wstring_to_ansi(newFileNameAld), std::ios_base::binary | std::ios_base::trunc);
 		if (!newAld.is_open()) {
-			this->m_logger->logging(LogLevel::_ERROR_, "Не удалось создать файл: " + wstring_to_ansi(newFileNameAld));
+			this->m_logger->logging(LogLevel::_ERROR_, "пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ: " + wstring_to_ansi(newFileNameAld));
 			return;
 		}
 
-		// Копирование данных
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 		if (!this->file->is_open()) {
-			this->m_logger->logging(LogLevel::_ERROR_, "Исходный файл не открыт");
+			this->m_logger->logging(LogLevel::_ERROR_, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
 			newAld.close();
 			return;
 		}
@@ -139,16 +139,16 @@ void File_ald::saveNewAld(std::wstring newNameOSC) {
 		size_t seek = sizeof(FileHdr) + sizeof(MeasData);
 		this->m_logger->logging(LogLevel::_INFO_, "find seek. seek = " + std::to_string(seek) + "; max = " + std::to_string(max_size_file));
 
-		// Проверяем, что позиция установлена корректно
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		if (max_size_file < seek) {
-			this->m_logger->logging(LogLevel::_ERROR_, "Ошибка позиционирования в файле");
+			this->m_logger->logging(LogLevel::_ERROR_, "пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ");
 			return;
 		}
 
 		this->m_logger->logging(LogLevel::_INFO_, "try seekg.");
-		// Перемещаем указатель чтения в исходном файле на нужное смещение
-		this->file->clear();  // Сброс ошибок перед seekg()
-		this->file->seekg(seek, std::ios::beg);  // seek - ваше вычисленное смещение
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		this->file->clear();  // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ seekg()
+		this->file->seekg(seek, std::ios::beg);  // seek - пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		if (this->file->tellg() != seek) this->m_logger->logging(LogLevel::_CRITICAL_, "this->file->tellg() != seek");
 
 		this->m_logger->logging(LogLevel::_INFO_, "start copy data");
@@ -171,7 +171,7 @@ void File_ald::saveNewAld(std::wstring newNameOSC) {
 		delete[] data;
 		this->m_logger->logging(LogLevel::_INFO_, "end copy data");
 
-		// Восстановление старого имени
+		// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 		strncpy(this->measData->sdo_name, oldOSCName, 254);
 		this->measData->sdo_name[254] = '\0';
 
@@ -340,7 +340,7 @@ BOOL File_ald::readAld()
 				}
 			}
 
-			// Если остались необработанные данные, сохраняем их для следующей итерации
+			// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 			if (words_read + stay_count >= pointer) {
 				stay_count = words_read + stay_count - pointer;
 				std::memcpy((void*)readBuffer, (void*)(readBuffer + pointer), stay_count * sizeof(UINT));
@@ -363,25 +363,25 @@ void File_ald::cls()
     if (this->file->is_open()) this->file->close();
 }
 
-size_t File_ald::ReadDataIntoBuffer(UINT* readBuffer, const size_t stayСount)
+size_t File_ald::ReadDataIntoBuffer(UINT* readBuffer, const size_t stayпїЅount)
 {
-	// Проверка валидности
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if (!this->file->is_open() || !readBuffer) {
 		return false; 
 	}
 
-	// Вычисляем количество байт для чтения
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	const size_t bytesToRead = READ_BUF_SIZE * sizeof(UINT);
 
-	// Читаем данные из файла
-	this->file->read(reinterpret_cast<char*>(readBuffer + stayСount), bytesToRead);
+	// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	this->file->read(reinterpret_cast<char*>(readBuffer + stayпїЅount), bytesToRead);
 
-	// Проверяем, удалось ли прочитать данные
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	if (!this->file->eof() && !this->file->good()) {
-		return false; // Ошибка чтения
+		return false; // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	}
-	// Вычисляем количество прочитанных элементов типа UINT
-	// и возвращаем это значение
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ UINT
+	// пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	size_t bytesRead = this->file->gcount();
 	return bytesRead / sizeof(UINT);
 }
