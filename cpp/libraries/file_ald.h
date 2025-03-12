@@ -49,5 +49,5 @@ protected:
 	// Возвращает количество прочитанных элементов типа UINT.
 	// readBuffer - буфер, из которого будут читаться данные.
 	// stay_count - количество элементов, оставшихся с предыдущей итерации.
-	size_t ReadDataIntoBuffer(size_t* readBuffer, const size_t stayСount);
+	size_t ReadDataIntoBuffer(UINT* readBuffer, const size_t stayСount);
 };
